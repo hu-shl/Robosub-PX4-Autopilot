@@ -1,6 +1,11 @@
 CONFIG:
   default: px4_sitl_default
   choices:
+    px4_fmu-v6x_robosub:
+    short: Robosub
+    buildType: MinSizeRel
+    settings:
+      CONFIG: px4_fmu-v6x_robosub
     px4_sitl_default:
       short: px4_sitl_default
       buildType: RelWithDebInfo
