@@ -297,6 +297,7 @@ set(msg_files
 	# Robosub uORB topics
 	# robosub/exampleTopic.msg
 	robosub/BuoyancyControl.msg
+	robosub/my_custom_topic.msg
 )
 if(CONFIG_GPS_UBX_SPAN)
 	list(APPEND msg_files SensorGnssSpectrum.msg)
