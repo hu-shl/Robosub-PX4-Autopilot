@@ -104,6 +104,12 @@ publications:
     type: px4_msgs::msg::HomePosition
     rate_limit: 5.
 
+  - topic: /fmu/out/arm_control
+    type: px4_msgs::msg::ArmControl
+
+  - topic: /fmu/out/buoyancy_control
+    type: px4_msgs::msg::BuoyancyControl
+
   - topic: /fmu/out/wind
     type: px4_msgs::msg::Wind
     rate_limit: 1.
