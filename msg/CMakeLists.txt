@@ -294,6 +294,9 @@ set(msg_files
 	versioned/VehicleStatus.msg
 	versioned/VtolVehicleStatus.msg
 	versioned/Wind.msg
+	# Robosub uORB topics
+	# robosub/exampleTopic.msg
+	robosub/BuoyancyControl.msg
 )
 if(CONFIG_GPS_UBX_SPAN)
 	list(APPEND msg_files SensorGnssSpectrum.msg)
