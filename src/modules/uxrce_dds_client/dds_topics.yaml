@@ -110,6 +110,12 @@ publications:
   - topic: /fmu/out/buoyancy_control
     type: px4_msgs::msg::BuoyancyControl
 
+  - topic: /fmu/out/vehicle_health
+    type: px4_msgs::msg::VehicleHealth
+
+  - topic: /fmu/out/jetson_control
+    type: px4_msgs::msg::JetsonControl
+
   - topic: /fmu/out/wind
     type: px4_msgs::msg::Wind
     rate_limit: 1.
@@ -244,6 +250,9 @@ subscriptions:
 
   - topic: /fmu/in/buoyancy_control
     type: px4_msgs::msg::BuoyancyControl
+
+  - topic: /fmu/in/jetson_control
+    type: px4_msgs::msg::JetsonControl
 
 # Subscriptions multiplexed to uORB multi-instances (optionally demultiplexed based on a message field)
 subscriptions_multi:
