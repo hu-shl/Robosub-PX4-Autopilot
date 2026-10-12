@@ -205,7 +205,7 @@ void RS_MovementControl::Run()
 	hrt_abstime now = hrt_absolute_time();
 
 
-	switch (status.nav_state){						// switchcase with logic based on flight mode
+	switch (status.nav_state){						// switchcase with logic based on flight mode (manual,hold, ROS2)
 
 	case vehicle_status_s::NAVIGATION_STATE_MANUAL:  // controller inputs linked to thrusters en buoyancy
 		_hold_position_set = false;			//controller inputs linked to thrusters en buoyancy
@@ -304,10 +304,10 @@ void RS_MovementControl::control_manual(const manual_control_setpoint_s &manual,
 		// load data from manual control to output
 		// NED frame
 
-		switch(manual_mode){
+		switch(manual_mode){			//manual thruster/arm/buoyancy
 
 			case -1:
-			buoyancy.tank_command[0] = manual.roll;
+			buoyancy.tank_command[0] = manual.roll;				//buoyancy commands linked to rc controller inputs
 			buoyancy.tank_command[1] = manual.pitch;
 			buoyancy.tank_command[2] = manual.yaw;
 			buoyancy.tank_command[3] = manual.throttle;
@@ -319,7 +319,7 @@ void RS_MovementControl::control_manual(const manual_control_setpoint_s &manual,
 			break;
 
 			case 0:
-			torque.xyz[0] = manual.aux4;					//Controller allocation based on rc controller setup					//Controller allocation based on rc controller setup
+			torque.xyz[0] = manual.aux4;					//Controller allocation based on rc controller setup and airframe					//Controller allocation based on rc controller setup
 			torque.xyz[1] = manual.pitch;
 			torque.xyz[2] = manual.roll * 0.2f;
 
@@ -330,7 +330,7 @@ void RS_MovementControl::control_manual(const manual_control_setpoint_s &manual,
 			break;
 
 			case 1:
-			arm.servo_command[0] = manual.roll;
+			arm.servo_command[0] = manual.roll;				//arm commands linked to rc controller inputs
 			arm.servo_command[1] = manual.pitch;
 			arm.servo_command[2] = manual.yaw;
 			arm.servo_command[3] = manual.throttle;
@@ -348,7 +348,7 @@ vehicle_torque_setpoint_s &torque, buoyancy_control_s &buoyancy, hrt_abstime now
 {
 
     if (!_hold_position_set) {
-        _hold_x = odom.position[0];
+        _hold_x = odom.position[0];				//save current position as input in hold pid
         _hold_y = odom.position[1];
         _hold_z = odom.position[2];
 
@@ -366,7 +366,7 @@ vehicle_torque_setpoint_s &torque, buoyancy_control_s &buoyancy, hrt_abstime now
 
 	if (dt > 0.099f) {
 
-		_pid_x.update(_rs_x_kp.get(), _rs_x_ki.get(), _rs_x_kd.get(), _hold_x, odom.position[0], dt);
+		_pid_x.update(_rs_x_kp.get(), _rs_x_ki.get(), _rs_x_kd.get(), _hold_x, odom.position[0], dt);		//get custom pid parameters and use in custom pid function
 		_pid_y.update(_rs_y_kp.get(), _rs_y_ki.get(), _rs_y_kd.get(), _hold_y, odom.position[1], dt);
 		_pid_z.update(_rs_z_kp.get(), _rs_z_ki.get(), _rs_z_kd.get(), _hold_z, odom.position[2], dt);
 
@@ -377,7 +377,7 @@ vehicle_torque_setpoint_s &torque, buoyancy_control_s &buoyancy, hrt_abstime now
     }
 
 
-        thrust.xyz[0] = -_pid_x.get_output();;
+        thrust.xyz[0] = -_pid_x.get_output();		//set pid output to thrust setpoint from airframe
 	thrust.xyz[1] = -_pid_y.get_output();
 	thrust.xyz[2] = -_pid_z.get_output();
 	thrust.timestamp = now;
