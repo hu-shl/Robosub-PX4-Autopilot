@@ -40,6 +40,8 @@
 #include <px4_platform_common/events.h>
 #include <systemlib/mavlink_log.h>
 
+ModuleBase::Descriptor RS_MovementControl::desc{task_spawn, custom_command, print_usage};
+
 using namespace matrix;
 using namespace time_literals;
 using math::radians;
@@ -81,33 +83,26 @@ RS_MovementControl::~RS_MovementControl()
  */
 int RS_MovementControl::task_spawn(int argc, char *argv[])
 {
-	// Create new instance of the class
-	RS_MovementControl *instance = new RS_MovementControl();
+    RS_MovementControl *instance = new RS_MovementControl();
 
-	// Return Error if allocation in memory of instance failed
-	if (!instance) {			// check if the instance exists
-		PX4_ERR("alloc failed");	// log the error
-		return PX4_ERROR;		// return as an error
-	}
+    if (!instance) {
+        PX4_ERR("alloc failed");
+        return PX4_ERROR;
+    }
 
-	// Return Error and delete instance if init is not successful
-	if (!instance->init()) {		// run the initialize function
-		delete instance;		// if failed, delete the instance
-		return PX4_ERROR;		// return as an error
-	}
+    desc.object.store(instance);
+    desc.task_id = task_id_is_work_queue;
 
-	// If all is successfull:
+    if (instance->init()) {
+        instance->ScheduleNow();
+        return PX4_OK;
+    }
 
-	// Store the instance and mark as a work queue
-	_object.store(instance);
-	_task_id = task_id_is_work_queue;
+    delete instance;
+    desc.object.store(nullptr);
+    desc.task_id = -1;
 
-	// Force the module to wake up immediately to process (potential) parameters.
-	// Future runs will be triggered automatically by the uORB subscription callbacks.
-	instance->ScheduleNow();
-
-	// return ok
-	return PX4_OK;
+    return PX4_ERROR;
 }
 
 
@@ -162,8 +157,10 @@ void RS_MovementControl::Run()
 
 	// Check if this module should still exist
 	if (should_exit()) {
-		exit_and_cleanup();
-		return;
+	_manual_control_setpoint_sub.unregisterCallback();
+	_vehicle_health_sub.unregisterCallback();
+	exit_and_cleanup(desc);
+	return;
 	}
 
 	// begin performance monitoring
@@ -267,7 +264,15 @@ int RS_MovementControl::custom_command(int argc, char *argv[])
  */
 int RS_MovementControl::print_usage(const char *reason)
 {
-	return print_usage("No commands defined");
+    if (reason) {
+        PX4_WARN("%s", reason);
+    }
+
+    PRINT_MODULE_USAGE_NAME("rs_movement_control", "controller");
+    PRINT_MODULE_USAGE_COMMAND("start")
+    PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
+
+    return 0;
 }
 
 
@@ -277,7 +282,7 @@ int RS_MovementControl::print_usage(const char *reason)
  */
 extern "C" __EXPORT int rs_movement_control_main(int argc, char *argv[])
 {
-	return RS_MovementControl::main(argc, argv);
+	return ModuleBase::main(RS_MovementControl::desc, argc, argv);
 }
 
 

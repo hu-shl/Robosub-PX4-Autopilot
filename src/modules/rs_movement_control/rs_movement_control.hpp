@@ -112,10 +112,11 @@ private:
 
 
 
-class RS_MovementControl : public ModuleBase<RS_MovementControl>, public ModuleParams, public px4::WorkItem
+class RS_MovementControl : public ModuleBase, public ModuleParams, public px4::WorkItem
 {
 	// standard PX4 module boilerplate
 public:
+	static Descriptor desc;
 
 	/** @brief standard constructor / destructor */
 	RS_MovementControl();
