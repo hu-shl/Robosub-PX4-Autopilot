@@ -247,6 +247,7 @@ set(msg_files
 	VehicleControlMode.msg
 	VehicleGnss.msg
 	VehicleGnssHeading.msg
+	VehicleHealth.msg
 	VehicleImu.msg
 	VehicleImuStatus.msg
 	VehicleLocalPositionSetpoint.msg
