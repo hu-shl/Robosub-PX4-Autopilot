@@ -24,7 +24,7 @@
 #include <lib/matrix/matrix/math.hpp>					// matrix library
 #include <lib/perf/perf_counter.h>					// performance counters for top command
 #include <lib/systemlib/mavlink_log.h>
-#include <mathlib/math/Functions.hpp>					// MAVLink logging					// MAVLink logging
+#include <mathlib/math/Functions.hpp>					// MAVLink logging
 
 // uORB pub&sub stuff
 #include <uORB/Publication.hpp>						// uORB publication functionality
@@ -40,7 +40,7 @@
 // Setpoints
 #include <uORB/topics/vehicle_attitude_setpoint.h>			// contains thrust and attitude setpoints
 #include <uORB/topics/manual_control_setpoint.h>
-#include <uORB/topics/jetson_control.h>
+#include <uORB/topics/jetson_control.h>			// manual control inputs
 
 // Vehicle status
 #include <uORB/topics/vehicle_status.h>					// vehicle status for arming state
@@ -51,7 +51,7 @@
 #include <uORB/topics/vehicle_angular_velocity.h>			// attitude rates
 #include <uORB/topics/vehicle_attitude.h>				// attitude
 #include <uORB/topics/vehicle_local_position.h>
-#include <uORB/topics/vehicle_odometry.h>		// position, velocity and acceleration		// position, velocity and acceleration
+#include <uORB/topics/vehicle_odometry.h>		// position, velocity and acceleration
 
 // Thruster & Buoyancy control outputs & arm control
 #include <uORB/topics/vehicle_torque_setpoint.h>			// for controlling torque in thruster system
@@ -111,6 +111,7 @@ private:
 };
 
 
+
 class RS_MovementControl : public ModuleBase<RS_MovementControl>, public ModuleParams, public px4::WorkItem
 {
 	// standard PX4 module boilerplate
@@ -147,6 +148,7 @@ private:
 	void control_manual(const manual_control_setpoint_s &manual, vehicle_thrust_setpoint_s &thrust, vehicle_torque_setpoint_s &torque, buoyancy_control_s &buoyancy, arm_control_s &arm, hrt_abstime now);
 	void control_hold(const vehicle_odometry_s &odom, vehicle_thrust_setpoint_s &thrust, vehicle_torque_setpoint_s &torque, buoyancy_control_s &buoyancy, hrt_abstime now);
 	void control_jetson(const vehicle_local_position_s &lp, vehicle_thrust_setpoint_s &thrust, vehicle_torque_setpoint_s &torque, hrt_abstime now);
+
 
 	void parameters_update();			//functie om custom parameters te maken
 
@@ -205,8 +207,8 @@ private:
 	uORB::Subscription _vehicle_angular_velocity_sub{ORB_ID(vehicle_angular_velocity)};
 	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
 	uORB::Subscription _vehicle_local_position_sub{ORB_ID(vehicle_local_position)};
-	// uORB::Subscription _vehicle_visual_odometry_sub{ORB_ID(vehicle_visual_odometry)};		// should be converted to Callback later on
 	uORB::Subscription _vehicle_odo_sub{ORB_ID(vehicle_visual_odometry)};		// should be converted to Callback later on
+	// uORB::SubscriptionCallbackWorkItem _vehicle_local_position_sub{this, ORB_ID(vehicle_local_position)};
 	// Run the module when new position data is available
 
 	// Thruster & Buoyancy control outputs publications
@@ -240,7 +242,6 @@ private:
 	float _hold_x{0.0f};
 	float _hold_y{0.0f};
 	float _hold_z{0.0f};
-
 
 
 	// ################################################################################

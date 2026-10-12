@@ -38,6 +38,7 @@
 #include <mathlib/math/Limits.hpp>
 #include <mathlib/math/Functions.hpp>
 #include <px4_platform_common/events.h>
+#include <systemlib/mavlink_log.h>
 
 using namespace matrix;
 using namespace time_literals;
@@ -158,6 +159,7 @@ void RS_MovementControl::loadParams()
  */
 void RS_MovementControl::Run()
 {
+
 	// Check if this module should still exist
 	if (should_exit()) {
 		exit_and_cleanup();
@@ -169,13 +171,13 @@ void RS_MovementControl::Run()
 
 	// Check if parameters have changed
 	if (_parameter_update_sub.updated()) {
-		// clear update
+	// 	// clear update
 	 	parameter_update_s param_update;
 	 	_parameter_update_sub.copy(&param_update);
 
-		updateParams();
+	 	 updateParams();
 	// 	// loadParams();
-	}
+	 }
 
 	// create objects to copy data to and from
 	manual_control_setpoint_s manualControlInput;
@@ -185,7 +187,7 @@ void RS_MovementControl::Run()
 	vehicle_torque_setpoint_s torqueSetpoint{};
 	buoyancy_control_s	  buoyancyControl{};
 	arm_control_s		  armControl{};
-	vehicle_status_s	  status;  // to monitor flightmode
+	vehicle_status_s	  status;			// to monitor flightmode
 	vehicle_health_s	  vehicleHealth{};
 	jetson_control_s	  jetsonControl{};		// to monitor health status of the vehicle
 
@@ -193,21 +195,22 @@ void RS_MovementControl::Run()
 	_manual_control_setpoint_sub.copy(&manualControlInput);
 	_vehicle_status_sub.copy(&status);
 	_vehicle_local_position_sub.copy(&vehicle_local_position);
+	_vehicle_odo_sub.copy(&vehicle_odo_data);
+
 	_vehicle_health_sub.copy(&vehicleHealth);
 	_jetson_control_sub.copy(&jetsonControl);
-	_vehicle_odo_sub.copy(&vehicle_odo_data);
 
 	orb_advert_t mavlink_log_pub = nullptr;
 	if (vehicleHealth.battery[0] > 50.0f) {
 		mavlink_log_info(&mavlink_log_pub, "temp battery high!: %f", static_cast<double>(vehicleHealth.battery[0]));
 	}
-	// get current time
-	hrt_abstime now = hrt_absolute_time();
+		// get current time
+		hrt_abstime now = hrt_absolute_time();
 
 
-	switch (status.nav_state){						// switchcase with logic based on flight mode (manual,hold, ROS2)
+	switch (status.nav_state){						// switchcase with logic based on flight mode (manual, hold, ROS2)
 
-	case vehicle_status_s::NAVIGATION_STATE_MANUAL:  // controller inputs linked to thrusters en buoyancy
+		case vehicle_status_s::NAVIGATION_STATE_MANUAL:
 		_hold_position_set = false;			//controller inputs linked to thrusters en buoyancy
 		control_manual(manualControlInput, thrustSetpoint, torqueSetpoint, buoyancyControl, armControl, now);
 		break;
@@ -220,17 +223,18 @@ void RS_MovementControl::Run()
 		//evt later langzame pid voor buoyancy voor Z,roll,pitch
 		break;
 
+
 	case vehicle_status_s::NAVIGATION_STATE_ACRO:			//Thruster control by ROS2
 		// volledig naar locatie-setpoint luisteren van ROS2.
 		// In dit stuk code zit dus ook code verwerkt.
-		break;
+	break;
 }
+		// publish the new data
+		_vehicle_torque_setpoint_pub.publish(torqueSetpoint);
+        	_vehicle_thrust_setpoint_pub.publish(thrustSetpoint);
+		_buoyancy_control_pub.publish(buoyancyControl);
+		_arm_control_pub.publish(armControl);
 
-	// publish the new data
-	_vehicle_torque_setpoint_pub.publish(torqueSetpoint);
-	_vehicle_thrust_setpoint_pub.publish(thrustSetpoint);
-	_buoyancy_control_pub.publish(buoyancyControl);
-	_arm_control_pub.publish(armControl);
 
 	perf_end(_loop_perf);
 }
@@ -277,9 +281,8 @@ extern "C" __EXPORT int rs_movement_control_main(int argc, char *argv[])
 }
 
 
-
 void RS_MovementControl::control_manual(const manual_control_setpoint_s &manual, vehicle_thrust_setpoint_s &thrust,
-	vehicle_torque_setpoint_s &torque, buoyancy_control_s &buoyancy, arm_control_s &arm, hrt_abstime now)
+	 vehicle_torque_setpoint_s &torque, buoyancy_control_s &buoyancy, arm_control_s &arm, hrt_abstime now)
 {
 
 // set timestamp variables
@@ -319,7 +322,7 @@ void RS_MovementControl::control_manual(const manual_control_setpoint_s &manual,
 			break;
 
 			case 0:
-			torque.xyz[0] = manual.aux4;					//Controller allocation based on rc controller setup and airframe					//Controller allocation based on rc controller setup
+			torque.xyz[0] = manual.aux4;					//Controller allocation based on rc controller setup and airframe
 			torque.xyz[1] = manual.pitch;
 			torque.xyz[2] = manual.roll * 0.2f;
 
@@ -341,12 +344,13 @@ void RS_MovementControl::control_manual(const manual_control_setpoint_s &manual,
 			PX4_INFO("arm mode: %d", manual_mode);
 
 		}
+
+
 }
 
 void RS_MovementControl::control_hold(const vehicle_odometry_s &odom, vehicle_thrust_setpoint_s &thrust,
 vehicle_torque_setpoint_s &torque, buoyancy_control_s &buoyancy, hrt_abstime now)
 {
-
     if (!_hold_position_set) {
         _hold_x = odom.position[0];				//save current position as input in hold pid
         _hold_y = odom.position[1];
@@ -364,21 +368,21 @@ vehicle_torque_setpoint_s &torque, buoyancy_control_s &buoyancy, hrt_abstime now
 
     float dt = (now - _last_run) / 1e6f;
 
-	if (dt > 0.099f) {
+    if (dt > 0.099f) {
 
-		_pid_x.update(_rs_x_kp.get(), _rs_x_ki.get(), _rs_x_kd.get(), _hold_x, odom.position[0], dt);		//get custom pid parameters and use in custom pid function
-		_pid_y.update(_rs_y_kp.get(), _rs_y_ki.get(), _rs_y_kd.get(), _hold_y, odom.position[1], dt);
-		_pid_z.update(_rs_z_kp.get(), _rs_z_ki.get(), _rs_z_kd.get(), _hold_z, odom.position[2], dt);
+	_pid_x.update(_rs_x_kp.get(), _rs_x_ki.get(), _rs_x_kd.get(), _hold_x, odom.position[0], dt);		//get custom pid parameters and use in custom pid function
+
+	_pid_y.update(_rs_y_kp.get(), _rs_y_ki.get(), _rs_y_kd.get(), _hold_y, odom.position[1], dt);
+
+	_pid_z.update(_rs_z_kp.get(), _rs_z_ki.get(), _rs_z_kd.get(), _hold_z, odom.position[2], dt);
 
         _last_run = now;
 
         PX4_INFO("Hold Active - X_Err: %.2f | X_Thrust: %.2f", (double)(_hold_x - odom.position[0]), (double)thrust.xyz[0]);
 	PX4_INFO("Hold sp %.2f", (double)odom.position[0]);
     }
-
-
-        thrust.xyz[0] = -_pid_x.get_output();		//set pid output to thrust setpoint from airframe
-	thrust.xyz[1] = -_pid_y.get_output();
-	thrust.xyz[2] = -_pid_z.get_output();
-	thrust.timestamp = now;
+    thrust.xyz[0] = -_pid_x.get_output();		//set pid output to thrust setpoint from airframe
+    thrust.xyz[1] = -_pid_y.get_output();
+    thrust.xyz[2] = -_pid_z.get_output();
+    thrust.timestamp = now;
 }
