@@ -212,7 +212,6 @@ void RS_MovementControl::Run()
 		break;
 }
 
-
 	// publish the new data
 	_vehicle_torque_setpoint_pub.publish(torqueSetpoint);
 	_vehicle_thrust_setpoint_pub.publish(thrustSetpoint);
@@ -262,6 +261,7 @@ extern "C" __EXPORT int rs_movement_control_main(int argc, char *argv[])
 {
 	return RS_MovementControl::main(argc, argv);
 }
+
 
 
 void RS_MovementControl::control_manual(const manual_control_setpoint_s &manual, vehicle_thrust_setpoint_s &thrust,
