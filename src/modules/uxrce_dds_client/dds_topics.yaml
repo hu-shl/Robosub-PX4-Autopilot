@@ -254,6 +254,9 @@ subscriptions:
   - topic: /fmu/in/jetson_control
     type: px4_msgs::msg::JetsonControl
 
+  - topic: /fmu/in/vehicle_health
+    type: px4_msgs::msg::VehicleHealth
+
 # Subscriptions multiplexed to uORB multi-instances (optionally demultiplexed based on a message field)
 subscriptions_multi:
   - topic: /fmu/in/aux_global_position
