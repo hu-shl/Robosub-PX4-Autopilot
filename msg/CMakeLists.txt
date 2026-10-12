@@ -130,6 +130,7 @@ set(msg_files
 	InternalCombustionEngineStatus.msg
 	IridiumsbdStatus.msg
 	IrlockReport.msg
+	JetsonControl.msg
 	LandingGear.msg
 	LandingGearWheel.msg
 	LandingTargetInnovations.msg
