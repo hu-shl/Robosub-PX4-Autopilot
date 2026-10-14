@@ -33024,6 +33024,7 @@ Chose source for manual setting of flaps in manual flight modes.
 - `4`: Aux4
 - `5`: Aux5
 - `6`: Flaps channel
+- `7`: Aux6
 
 
 Reboot | minValue | maxValue | increment | default | unit | Read-Only
@@ -33282,6 +33283,7 @@ Chose source for manual setting of spoilers in manual flight modes.
 - `4`: Aux3
 - `5`: Aux4
 - `6`: Aux5
+- `7`: Aux6
 
 
 Reboot | minValue | maxValue | increment | default | unit | Read-Only
@@ -45382,8 +45384,8 @@ Select your RC input protocol or auto to scan.
 - `1`: PPM
 - `2`: SBUS
 - `3`: DSM
-- `4`: ST24
-- `5`: SUMD
+- `4`: SUMD
+- `5`: ST24
 - `6`: CRSF
 - `7`: GHST
 
@@ -53282,12 +53284,11 @@ IMU gyro FFT length.
 - `256`: 256
 - `512`: 512
 - `1024`: 1024
-- `4096`: 4096
 
 
 Reboot | minValue | maxValue | increment | default | unit | Read-Only
 --- | --- | --- | --- | --- | --- | ---
-&check; |  |  |  | 512 | Hz | &nbsp;
+&check; |  |  |  | 512 |  | &nbsp;
 
 </div>
 
