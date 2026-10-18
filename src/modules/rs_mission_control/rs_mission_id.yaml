@@ -1,0 +1,18 @@
+module_name: rs_mission_control
+
+parameters:
+    - group: mission_id
+      definitions:
+        RS_MISSION_ID:
+          description:
+            short: rs_mission_id
+            long: Mission selected for the vehicle and reported to the companion computer.
+          type: enum
+          values:
+            0: Manual mission
+            1: Manual ArUco mission
+            2: Follow pipe mission
+          default: 0
+          min: 0
+          max: 2
+          category: Robosub

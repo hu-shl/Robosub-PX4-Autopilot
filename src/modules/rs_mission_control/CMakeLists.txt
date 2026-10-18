@@ -10,7 +10,8 @@ px4_add_module(
 		rs_mission_control.cpp
 		rs_mission_control.hpp
 	MODULE_CONFIG
-		rs_mission_control.yaml
+		rs_pid_gains.yaml
+		rs_mission_id.yaml
 	DEPENDS
 		px4_work_queue
 		rs_missions

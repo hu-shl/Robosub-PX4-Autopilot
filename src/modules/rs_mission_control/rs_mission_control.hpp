@@ -33,6 +33,7 @@
 // Setpoints
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/jetson_control.h>			// manual control inputs
+#include <uORB/topics/rs_mission_id.h>
 
 // Vehicle status
 #include <uORB/topics/vehicle_status.h>					// vehicle status for arming state
@@ -48,8 +49,6 @@
 #include <uORB/topics/vehicle_thrust_setpoint.h>			// for controlling thrust in thruster system
 #include <uORB/topics/buoyancy_control.h>
 #include <uORB/topics/arm_control.h>
-
-using namespace time_literals;
 
 // ################################################################################
 // #	Task Class
@@ -132,7 +131,16 @@ private:
 	void control_hold(const vehicle_odometry_s &odom, vehicle_thrust_setpoint_s &thrust, vehicle_torque_setpoint_s &torque,
 			  buoyancy_control_s &buoyancy, hrt_abstime now);
 
+	enum class MissionId : int32_t {
+		Manual = 0,
+		ManualAruco = 1,
+		FollowPipe = 2
+	};
+
+	void publish_mission_id();
+
 	DEFINE_PARAMETERS(
+		(ParamInt<px4::params::RS_MISSION_ID>) _param_rs_mission_id,
 		(ParamFloat<px4::params::RS_X_KP>) _rs_x_kp,
 		(ParamFloat<px4::params::RS_X_KI>) _rs_x_ki,
 		(ParamFloat<px4::params::RS_X_KD>) _rs_x_kd,
@@ -156,7 +164,7 @@ private:
 	// uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 
 	// Custom parameters
-	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
+	uORB::SubscriptionCallbackWorkItem _parameter_update_sub{this, ORB_ID(parameter_update)};
 
 	// Setpoints subscriptions
 	uORB::SubscriptionCallbackWorkItem _manual_control_setpoint_sub{this, ORB_ID(manual_control_setpoint)};		// should be converted to normal later on
@@ -186,6 +194,8 @@ private:
 	uORB::Publication<vehicle_thrust_setpoint_s>	_vehicle_thrust_setpoint_pub{ORB_ID(vehicle_thrust_setpoint)};
 	uORB::Publication<buoyancy_control_s>		_buoyancy_control_pub{ORB_ID(buoyancy_control)};
 	uORB::Publication<arm_control_s>			_arm_control_pub{ORB_ID(arm_control)};
+	uORB::Publication<rs_mission_id_s> _rs_mission_id_pub{ORB_ID(rs_mission_id)};
+	int32_t _last_published_mission_id{-1};
 
 	// ################################################################################
 	// #	Module Global Variables

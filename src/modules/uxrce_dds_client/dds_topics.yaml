@@ -116,6 +116,9 @@ publications:
   - topic: /fmu/out/jetson_control
     type: px4_msgs::msg::JetsonControl
 
+  - topic: /fmu/out/rs_mission_id
+    type: px4_msgs::msg::RsMissionId
+
   - topic: /fmu/out/wind
     type: px4_msgs::msg::Wind
     rate_limit: 1.

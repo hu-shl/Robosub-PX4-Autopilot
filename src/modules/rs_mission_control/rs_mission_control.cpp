@@ -100,7 +100,9 @@ int RS_MissionControl::task_spawn(int argc, char *argv[])
  */
 bool RS_MissionControl::init()
 {
-	// Register the callback
+	updateParams();
+
+	// Register the callbacks
 	if (!_manual_control_setpoint_sub.registerCallback()) {
 		PX4_ERR("callback registration failed");
 		return false;
@@ -111,11 +113,20 @@ bool RS_MissionControl::init()
 		return false;
 	}
 
+	if (!_parameter_update_sub.registerCallback()) {
+		PX4_ERR("parameter update callback registration failed");
+		_manual_control_setpoint_sub.unregisterCallback();
+		_vehicle_health_sub.unregisterCallback();
+		return false;
+	}
+
 	// advertise to be published topics
 	_vehicle_torque_setpoint_pub.advertise();
 	_vehicle_thrust_setpoint_pub.advertise();
 	_buoyancy_control_pub.advertise();
 	_arm_control_pub.advertise();
+	_rs_mission_id_pub.advertise();
+	publish_mission_id();
 
 	// Test to see if dependencies are initialized correctly
 	ManualMission{}.print_name();
@@ -137,6 +148,7 @@ void RS_MissionControl::Run()
 	if (should_exit()) {
 		_manual_control_setpoint_sub.unregisterCallback();
 		_vehicle_health_sub.unregisterCallback();
+		_parameter_update_sub.unregisterCallback();
 		exit_and_cleanup(desc);
 		return;
 	}
@@ -146,10 +158,10 @@ void RS_MissionControl::Run()
 
 	// Check if parameters have changed
 	if (_parameter_update_sub.updated()) {
-		// 	// clear update
 		parameter_update_s param_update;
 		_parameter_update_sub.copy(&param_update);
 		updateParams();
+		publish_mission_id();
 	}
 
 	// create objects to copy data to and from
@@ -204,6 +216,30 @@ void RS_MissionControl::Run()
 	_arm_control_pub.publish(armControl);
 
 	perf_end(_loop_perf);
+}
+
+void RS_MissionControl::publish_mission_id()
+{
+	const int32_t mission_id = _param_rs_mission_id.get();
+
+	if (mission_id != static_cast<int32_t>(MissionId::Manual)
+	    && mission_id != static_cast<int32_t>(MissionId::ManualAruco)
+	    && mission_id != static_cast<int32_t>(MissionId::FollowPipe)) {
+		PX4_ERR("unsupported mission ID: %d", static_cast<int>(mission_id));
+		return;
+	}
+
+	if (mission_id == _last_published_mission_id) {
+		return;
+	}
+
+	rs_mission_id_s msg{};
+	msg.timestamp = hrt_absolute_time();
+	msg.mission_id = static_cast<uint8_t>(mission_id);
+	_rs_mission_id_pub.publish(msg);
+
+	_last_published_mission_id = mission_id;
+	PX4_INFO("Selected mission ID: %d", static_cast<int>(mission_id));
 }
 
 /**

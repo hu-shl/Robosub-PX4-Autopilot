@@ -1,7 +1,7 @@
 module_name: rs_mission_control
 
 parameters:
-    - group: rs_mission_control
+    - group: pid_gains
       definitions:
         RS_X_KP:
           description:
@@ -11,6 +11,7 @@ parameters:
           min: 0
           max: 1000
           default: 1
+          category: Robosub
 
 
         RS_X_KI:
@@ -21,6 +22,7 @@ parameters:
           min: 0.0
           max: 1000.0
           default: 1.0
+          category: Robosub
 
         RS_X_KD:
           description:
@@ -30,6 +32,7 @@ parameters:
           min: 0.0
           max: 1000.0
           default: 1.0
+          category: Robosub
 
         RS_Y_KP:
           description:
@@ -39,6 +42,7 @@ parameters:
           min: 0.0
           max: 1000.0
           default: 1.0
+          category: Robosub
 
         RS_Y_KI:
           description:
@@ -48,6 +52,7 @@ parameters:
           min: 0.0
           max: 1000.0
           default: 1.0
+          category: Robosub
 
         RS_Y_KD:
           description:
@@ -57,6 +62,7 @@ parameters:
           min: 0.0
           max: 1000.0
           default: 1.0
+          category: Robosub
 
         RS_Z_KP:
           description:
@@ -66,6 +72,7 @@ parameters:
           min: 0.0
           max: 1000.0
           default: 1.0
+          category: Robosub
 
         RS_Z_KI:
           description:
@@ -75,6 +82,7 @@ parameters:
           min: 0.0
           max: 1000.0
           default: 1.0
+          category: Robosub
 
         RS_Z_KD:
           description:
@@ -84,4 +92,4 @@ parameters:
           min: 0.0
           max: 1000.0
           default: 1.0
-
+          category: Robosub
