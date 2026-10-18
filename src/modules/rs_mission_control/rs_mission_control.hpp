@@ -112,15 +112,15 @@ private:
 
 
 
-class RS_MovementControl : public ModuleBase, public ModuleParams, public px4::WorkItem
+class RS_MissionControl : public ModuleBase, public ModuleParams, public px4::WorkItem
 {
 	// standard PX4 module boilerplate
 public:
 	static Descriptor desc;
 
 	/** @brief standard constructor / destructor */
-	RS_MovementControl();
-	~RS_MovementControl() override;
+	RS_MissionControl();
+	~RS_MissionControl() override;
 
 	/** @see ModuleBase */
 	static int task_spawn(int argc, char *argv[]);

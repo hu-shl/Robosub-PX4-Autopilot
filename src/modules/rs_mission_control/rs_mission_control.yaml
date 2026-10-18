@@ -1,7 +1,7 @@
-module_name: rs_movement_control
+module_name: rs_mission_control
 
 parameters:
-    - group: rs_movement_control
+    - group: rs_mission_control
       definitions:
         RS_X_KP:
           description:
@@ -91,6 +91,5 @@ parameters:
             long: Robosub manual thrusters, arm or buoyancy. 0 = buoyancy, 1 = Thrusters, 2 = Arm
           type: float
           default: 0
-
 
 

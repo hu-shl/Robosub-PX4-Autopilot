@@ -31,7 +31,7 @@
  *
  ****************************************************************************/
 
-#include "rs_movement_control.hpp"
+#include "rs_mission_control.hpp"
 
 #include <drivers/drv_hrt.h>
 #include <circuit_breaker/circuit_breaker.h>
@@ -40,7 +40,7 @@
 #include <px4_platform_common/events.h>
 #include <systemlib/mavlink_log.h>
 
-ModuleBase::Descriptor RS_MovementControl::desc{task_spawn, custom_command, print_usage};
+ModuleBase::Descriptor RS_MissionControl::desc{task_spawn, custom_command, print_usage};
 
 using namespace matrix;
 using namespace time_literals;
@@ -51,7 +51,7 @@ using math::radians;
 /**
  * @brief Class constructor
  */
-RS_MovementControl::RS_MovementControl() :
+RS_MissionControl::RS_MissionControl() :
 	ModuleParams(nullptr),
 	WorkItem(MODULE_NAME, px4::wq_configurations::rate_ctrl),
 	_loop_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle"))
@@ -66,7 +66,7 @@ RS_MovementControl::RS_MovementControl() :
 /**
  * @brief Class destructor
  */
-RS_MovementControl::~RS_MovementControl()
+RS_MissionControl::~RS_MissionControl()
 {
 	perf_free(_loop_perf);
 }
@@ -81,9 +81,9 @@ RS_MovementControl::~RS_MovementControl()
  *
  * @return PX4_OK if successfull, otherwise PX4_ERROR
  */
-int RS_MovementControl::task_spawn(int argc, char *argv[])
+int RS_MissionControl::task_spawn(int argc, char *argv[])
 {
-    RS_MovementControl *instance = new RS_MovementControl();
+    RS_MissionControl *instance = new RS_MissionControl();
 
     if (!instance) {
         PX4_ERR("alloc failed");
@@ -112,7 +112,7 @@ int RS_MovementControl::task_spawn(int argc, char *argv[])
  *
  * @return PX4_OK if successfull, otherwise PX4_ERROR
  */
-bool RS_MovementControl::init()
+bool RS_MissionControl::init()
 {
 	// Register the callback
 	if (!_manual_control_setpoint_sub.registerCallback()) {
@@ -141,7 +141,7 @@ bool RS_MovementControl::init()
  *
  * @return void
  */
-void RS_MovementControl::loadParams()
+void RS_MissionControl::loadParams()
 {
 	// Add parameters here to update in the future.
 	// like: pid.load(kp.get(), ki.get(), kd.get());
@@ -152,7 +152,7 @@ void RS_MovementControl::loadParams()
 /**
  * @brief Main Module loop
  */
-void RS_MovementControl::Run()
+void RS_MissionControl::Run()
 {
 
 	// Check if this module should still exist
@@ -246,7 +246,7 @@ void RS_MovementControl::Run()
  *
  * @return PX4_OK if successfull, otherwise PX4_ERROR
  */
-int RS_MovementControl::custom_command(int argc, char *argv[])
+int RS_MissionControl::custom_command(int argc, char *argv[])
 {
 	// for now we don't define any custom flags / commands
 	return print_usage("unknown command");
@@ -262,13 +262,13 @@ int RS_MovementControl::custom_command(int argc, char *argv[])
  *
  * @return PX4_OK if successfull, otherwise PX4_ERROR
  */
-int RS_MovementControl::print_usage(const char *reason)
+int RS_MissionControl::print_usage(const char *reason)
 {
     if (reason) {
         PX4_WARN("%s", reason);
     }
 
-    PRINT_MODULE_USAGE_NAME("rs_movement_control", "controller");
+    PRINT_MODULE_USAGE_NAME("rs_mission_control", "controller");
     PRINT_MODULE_USAGE_COMMAND("start")
     PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
@@ -280,13 +280,13 @@ int RS_MovementControl::print_usage(const char *reason)
 /**
  * @brief C Export for compaitibility with NuttX shell
  */
-extern "C" __EXPORT int rs_movement_control_main(int argc, char *argv[])
+extern "C" __EXPORT int rs_mission_control_main(int argc, char *argv[])
 {
-	return ModuleBase::main(RS_MovementControl::desc, argc, argv);
+	return ModuleBase::main(RS_MissionControl::desc, argc, argv);
 }
 
 
-void RS_MovementControl::control_manual(const manual_control_setpoint_s &manual, vehicle_thrust_setpoint_s &thrust,
+void RS_MissionControl::control_manual(const manual_control_setpoint_s &manual, vehicle_thrust_setpoint_s &thrust,
 	 vehicle_torque_setpoint_s &torque, buoyancy_control_s &buoyancy, arm_control_s &arm, hrt_abstime now)
 {
 
@@ -353,7 +353,7 @@ void RS_MovementControl::control_manual(const manual_control_setpoint_s &manual,
 
 }
 
-void RS_MovementControl::control_hold(const vehicle_odometry_s &odom, vehicle_thrust_setpoint_s &thrust,
+void RS_MissionControl::control_hold(const vehicle_odometry_s &odom, vehicle_thrust_setpoint_s &thrust,
 vehicle_torque_setpoint_s &torque, buoyancy_control_s &buoyancy, hrt_abstime now)
 {
     if (!_hold_position_set) {
