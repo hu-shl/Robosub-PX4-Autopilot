@@ -40,6 +40,12 @@
 #include <px4_platform_common/events.h>
 #include <systemlib/mavlink_log.h>
 
+#include "missions/manual_mission/manual_mission.hpp"
+#include "missions/manual_aruco_mission/manual_aruco_mission.hpp"
+#include "missions/follow_pipe_mission/follow_pipe_mission.hpp"
+#include "controllers/manual_controller/manual_controller.hpp"
+#include "controllers/position_controller/position_controller.hpp"
+
 ModuleBase::Descriptor RS_MissionControl::desc{task_spawn, custom_command, print_usage};
 
 using namespace matrix;
@@ -130,6 +136,13 @@ bool RS_MissionControl::init()
 	_vehicle_thrust_setpoint_pub.advertise();
 	_buoyancy_control_pub.advertise();
 	_arm_control_pub.advertise();
+
+	// Test to see if dependencies are initialized correctly
+	ManualMission{}.print_name();
+	ManualArucoMission{}.print_name();
+	FollowPipeMission{}.print_name();
+	ManualController{}.print_name();
+	PositionController{}.print_name();
 
 	return true;
 }
