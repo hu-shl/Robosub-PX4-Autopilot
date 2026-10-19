@@ -1,4 +1,5 @@
 px4_add_library(rs_missions
+	mission.hpp
 	manual_mission/manual_mission.cpp
 	manual_mission/manual_mission.hpp
 	manual_aruco_mission/manual_aruco_mission.cpp

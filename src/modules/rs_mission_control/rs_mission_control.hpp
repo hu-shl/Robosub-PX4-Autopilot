@@ -25,6 +25,7 @@
 #include <uORB/topics/vehicle_attitude_setpoint.h>
 #include <uORB/topics/vehicle_angular_velocity.h>
 #include <uORB/topics/vehicle_attitude.h>
+#include <uORB/topics/vehicle_command.h>
 
 // ################################################################################
 // #	uORB Topics
@@ -50,10 +51,11 @@
 #include <uORB/topics/buoyancy_control.h>
 #include <uORB/topics/arm_control.h>
 
+#include "missions/mission.hpp"
+
 // ################################################################################
 // #	Task Class
 // ################################################################################
-#include "controllers/manual_controller/manual_controller.hpp"
 #include "controllers/position_controller/position_controller.hpp"
 
 class RS_MissionControl : public ModuleBase, public ModuleParams, public px4::WorkItem
@@ -91,7 +93,17 @@ private:
 		FollowPipe = 2
 	};
 
+	enum class CoordinatorState : uint8_t {
+		NoMission,
+		WaitingForMode,
+		Running,
+		Safe
+	};
+
 	void publish_mission_id();
+	void update_mission_selection(const vehicle_status_s &status);
+	void request_mission_mode(const vehicle_status_s &status);
+	void enter_safe_state(const char *reason);
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::RS_MISSION_ID>) _param_rs_mission_id,
@@ -124,7 +136,7 @@ private:
 	uORB::SubscriptionCallbackWorkItem _manual_control_setpoint_sub{this, ORB_ID(manual_control_setpoint)};		// should be converted to normal later on
 
 	// Vehicle status subscriptions
-	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
+	uORB::SubscriptionCallbackWorkItem _vehicle_status_sub{this, ORB_ID(vehicle_status)};
 	uORB::SubscriptionCallbackWorkItem _vehicle_health_sub{this, ORB_ID(vehicle_health)};
 
 	// Legacy members retained temporarily; verify their purpose before removing.
@@ -149,11 +161,15 @@ private:
 	uORB::Publication<buoyancy_control_s>		_buoyancy_control_pub{ORB_ID(buoyancy_control)};
 	uORB::Publication<arm_control_s>			_arm_control_pub{ORB_ID(arm_control)};
 	uORB::Publication<rs_mission_id_s> _rs_mission_id_pub{ORB_ID(rs_mission_id)};
+	uORB::Publication<vehicle_command_s> _vehicle_command_pub{ORB_ID(vehicle_command)};
 	int32_t _last_published_mission_id{-1};
+	int32_t _active_mission_id{-1};
+	hrt_abstime _last_mode_request{0};
+	Mission *_active_mission{nullptr};
+	CoordinatorState _coordinator_state{CoordinatorState::NoMission};
 
 	perf_counter_t	_loop_perf;			/**< loop duration performance counter */
 
-	ManualController _manual_controller;
 	PositionController _position_controller;
 
 };

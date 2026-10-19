@@ -35,10 +35,13 @@
 
 #include <drivers/drv_hrt.h>
 #include <systemlib/mavlink_log.h>
+#include "../commander/px4_custom_mode.h"
 
 #include "missions/manual_mission/manual_mission.hpp"
 #include "missions/manual_aruco_mission/manual_aruco_mission.hpp"
 #include "missions/follow_pipe_mission/follow_pipe_mission.hpp"
+
+static constexpr hrt_abstime MODE_REQUEST_RETRY_INTERVAL_US = 1'000'000;
 
 ModuleBase::Descriptor RS_MissionControl::desc{task_spawn, custom_command, print_usage};
 
@@ -108,6 +111,14 @@ bool RS_MissionControl::init()
 
 	if (!_vehicle_health_sub.registerCallback()) {
 		PX4_ERR("callback registration failed");
+		_manual_control_setpoint_sub.unregisterCallback();
+		return false;
+	}
+
+	if (!_vehicle_status_sub.registerCallback()) {
+		PX4_ERR("vehicle status callback registration failed");
+		_manual_control_setpoint_sub.unregisterCallback();
+		_vehicle_health_sub.unregisterCallback();
 		return false;
 	}
 
@@ -115,6 +126,7 @@ bool RS_MissionControl::init()
 		PX4_ERR("parameter update callback registration failed");
 		_manual_control_setpoint_sub.unregisterCallback();
 		_vehicle_health_sub.unregisterCallback();
+		_vehicle_status_sub.unregisterCallback();
 		return false;
 	}
 
@@ -126,10 +138,6 @@ bool RS_MissionControl::init()
 	_rs_mission_id_pub.advertise();
 	publish_mission_id();
 
-	// Test to see if dependencies are initialized correctly
-	ManualMission{}.print_name();
-	ManualArucoMission{}.print_name();
-	FollowPipeMission{}.print_name();
 	return true;
 }
 
@@ -143,6 +151,7 @@ void RS_MissionControl::Run()
 	if (should_exit()) {
 		_manual_control_setpoint_sub.unregisterCallback();
 		_vehicle_health_sub.unregisterCallback();
+		_vehicle_status_sub.unregisterCallback();
 		_parameter_update_sub.unregisterCallback();
 		exit_and_cleanup(desc);
 		return;
@@ -160,18 +169,17 @@ void RS_MissionControl::Run()
 	}
 
 	// create objects to copy data to and from
-	manual_control_setpoint_s manualControlInput;
-	vehicle_odometry_s vehicle_odo_data;
+	manual_control_setpoint_s manualControlInput{};
+	vehicle_odometry_s vehicle_odo_data{};
 	vehicle_thrust_setpoint_s thrustSetpoint{};
 	vehicle_torque_setpoint_s torqueSetpoint{};
 	buoyancy_control_s	  buoyancyControl{};
 	arm_control_s		  armControl{};
-	vehicle_status_s	  status;			// to monitor flightmode
+	vehicle_status_s	  status{};
 	vehicle_health_s	  vehicleHealth{};
 
-	// only run if there is new data in the manual control setpoint topic
 	_manual_control_setpoint_sub.copy(&manualControlInput);
-	_vehicle_status_sub.copy(&status);
+	const bool have_vehicle_status = _vehicle_status_sub.copy(&status);
 	_vehicle_odo_sub.copy(&vehicle_odo_data);
 	_vehicle_health_sub.copy(&vehicleHealth);
 
@@ -184,36 +192,143 @@ void RS_MissionControl::Run()
 	// get current time
 	hrt_abstime now = hrt_absolute_time();
 
-	switch (status.nav_state) {						// switchcase with logic based on flight mode (manual, hold, ROS2)
+	if (have_vehicle_status) {
+		update_mission_selection(status);
 
-	case vehicle_status_s::NAVIGATION_STATE_MANUAL:
-		_position_controller.reset();
-		_manual_controller.update(manualControlInput, thrustSetpoint, torqueSetpoint, buoyancyControl, armControl, now);
-		break;
+		if (_coordinator_state == CoordinatorState::WaitingForMode && _active_mission != nullptr) {
+			const uint8_t required_nav_state = _active_mission->required_mode() == Mission::RequiredMode::Manual ?
+							   vehicle_status_s::NAVIGATION_STATE_MANUAL :
+							   vehicle_status_s::NAVIGATION_STATE_OFFBOARD;
 
-	case vehicle_status_s::NAVIGATION_STATE_POSCTL: // Thruster control in hold mode
+			if (status.nav_state == required_nav_state) {
+				_active_mission->start();
+				_coordinator_state = CoordinatorState::Running;
+				PX4_INFO("Mission mode confirmed");
 
-		_position_controller.update(vehicle_odo_data, thrustSetpoint, now,
-		{_rs_x_kp.get(), _rs_x_ki.get(), _rs_x_kd.get()},
-		{_rs_y_kp.get(), _rs_y_ki.get(), _rs_y_kd.get()},
-		{_rs_z_kp.get(), _rs_z_ki.get(), _rs_z_kd.get()});
-		//pid in for x,y,z, roll, pitch, yaw thrusters
-		//evt later langzame pid voor buoyancy voor Z,roll,pitch
-		break;
+			} else if (now - _last_mode_request >= MODE_REQUEST_RETRY_INTERVAL_US) {
+				request_mission_mode(status);
+			}
+		}
 
-	case vehicle_status_s::NAVIGATION_STATE_ACRO:			//Thruster control by ROS2
-		// volledig naar locatie-setpoint luisteren van ROS2.
-		// In dit stuk code zit dus ook code verwerkt.
-		break;
+		if (_coordinator_state == CoordinatorState::Running && _active_mission != nullptr) {
+			const uint8_t required_nav_state = _active_mission->required_mode() == Mission::RequiredMode::Manual ?
+							   vehicle_status_s::NAVIGATION_STATE_MANUAL :
+							   vehicle_status_s::NAVIGATION_STATE_OFFBOARD;
+
+			if (status.nav_state != required_nav_state) {
+				_active_mission->stop();
+				enter_safe_state("vehicle left the mission's required mode");
+
+			} else {
+				MissionContext context{
+					manualControlInput,
+					vehicle_odo_data,
+					_position_controller,
+					{_rs_x_kp.get(), _rs_x_ki.get(), _rs_x_kd.get()},
+					{_rs_y_kp.get(), _rs_y_ki.get(), _rs_y_kd.get()},
+					{_rs_z_kp.get(), _rs_z_ki.get(), _rs_z_kd.get()},
+					thrustSetpoint,
+					torqueSetpoint,
+					buoyancyControl,
+					armControl,
+					now
+				};
+				_active_mission->update(context);
+			}
+		}
 	}
 
-	// publish the new data
 	_vehicle_torque_setpoint_pub.publish(torqueSetpoint);
 	_vehicle_thrust_setpoint_pub.publish(thrustSetpoint);
 	_buoyancy_control_pub.publish(buoyancyControl);
 	_arm_control_pub.publish(armControl);
 
 	perf_end(_loop_perf);
+}
+
+void RS_MissionControl::update_mission_selection(const vehicle_status_s &status)
+{
+	const int32_t mission_id = _param_rs_mission_id.get();
+
+	if (mission_id == _active_mission_id) {
+		return;
+	}
+
+	if (_active_mission != nullptr && _coordinator_state == CoordinatorState::Running) {
+		_active_mission->stop();
+	}
+
+	_active_mission = nullptr;
+	_active_mission_id = mission_id;
+	_coordinator_state = CoordinatorState::NoMission;
+
+	switch (static_cast<MissionId>(mission_id)) {
+	case MissionId::Manual: {
+			static ManualMission mission;
+			_active_mission = &mission;
+		}
+		break;
+
+	case MissionId::ManualAruco: {
+			static ManualArucoMission mission;
+			_active_mission = &mission;
+		}
+		break;
+
+	case MissionId::FollowPipe: {
+			static FollowPipeMission mission;
+			_active_mission = &mission;
+		}
+		break;
+
+	default:
+		enter_safe_state("unsupported mission ID");
+		return;
+	}
+
+	const uint8_t required_nav_state = _active_mission->required_mode() == Mission::RequiredMode::Manual ?
+					   vehicle_status_s::NAVIGATION_STATE_MANUAL :
+					   vehicle_status_s::NAVIGATION_STATE_OFFBOARD;
+
+	if (status.nav_state == required_nav_state) {
+		_active_mission->start();
+		_coordinator_state = CoordinatorState::Running;
+		PX4_INFO("Selected mission ID: %d is ready", static_cast<int>(mission_id));
+
+	} else {
+		_coordinator_state = CoordinatorState::WaitingForMode;
+		request_mission_mode(status);
+
+		if (_coordinator_state == CoordinatorState::WaitingForMode) {
+			PX4_INFO("Selected mission ID: %d, waiting for required mode", static_cast<int>(mission_id));
+		}
+	}
+}
+
+void RS_MissionControl::request_mission_mode(const vehicle_status_s &status)
+{
+	vehicle_command_s command{};
+	command.timestamp = hrt_absolute_time();
+	command.command = vehicle_command_s::VEHICLE_CMD_DO_SET_MODE;
+	command.param1 = 1.f;
+	command.param2 = _active_mission->required_mode() == Mission::RequiredMode::Manual ?
+			 PX4_CUSTOM_MAIN_MODE_MANUAL : PX4_CUSTOM_MAIN_MODE_OFFBOARD;
+	_last_mode_request = command.timestamp;
+	command.target_system = status.system_id;
+	command.target_component = status.component_id;
+	command.source_system = status.system_id;
+	command.source_component = status.component_id;
+
+	if (!_vehicle_command_pub.publish(command)) {
+		enter_safe_state("failed to publish mission mode request");
+	}
+}
+
+void RS_MissionControl::enter_safe_state(const char *reason)
+{
+	_active_mission = nullptr;
+	_coordinator_state = CoordinatorState::Safe;
+	PX4_WARN("Safe-state stub active: %s; no UUV-specific safe action is implemented", reason);
 }
 
 void RS_MissionControl::publish_mission_id()
