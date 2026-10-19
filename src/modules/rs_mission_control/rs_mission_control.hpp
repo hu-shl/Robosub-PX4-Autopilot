@@ -53,48 +53,8 @@
 // ################################################################################
 // #	Task Class
 // ################################################################################
-class RS_PID  							//custom class used for pid control
-{
-public:
-	RS_PID(float limit = 1.0f) : _limit(limit) {}
-
-	void update(float kp, float ki, float kd, float setpoint, float current_value, float dt)
-	{
-		if (dt <= 0.0f) { return; }
-
-		float error = setpoint - current_value;
-
-		float p_out = kp * error;
-
-		_integral += error * dt;
-		_integral = math::constrain(_integral, -0.5f, 0.5f);
-		float i_out = ki * _integral;
-
-		float derivative = (error - _last_error) / dt;
-		float d_out = kd * derivative;
-
-		float total = p_out + i_out + d_out;
-		_last_output = math::constrain(total, -_limit, _limit);
-
-		_last_error = error;
-	}
-
-	float get_output() const { return _last_output; }
-
-	void reset()
-	{
-		_integral = 0.0f;
-		_last_error = 0.0f;
-		_last_output = 0.0f;
-	}
-
-private:
-	float _limit;
-	float _integral{0.0f};
-	float _last_error{0.0f};
-	float _last_output{0.0f};
-
-};
+#include "controllers/manual_controller/manual_controller.hpp"
+#include "controllers/position_controller/position_controller.hpp"
 
 class RS_MissionControl : public ModuleBase, public ModuleParams, public px4::WorkItem
 {
@@ -124,12 +84,6 @@ private:
 	 *  @brief main running loop
 	*/
 	void Run() override;
-
-	void control_manual(const manual_control_setpoint_s &manual, vehicle_thrust_setpoint_s &thrust, vehicle_torque_setpoint_s &torque,
-			    buoyancy_control_s &buoyancy, arm_control_s &arm, hrt_abstime now);
-
-	void control_hold(const vehicle_odometry_s &odom, vehicle_thrust_setpoint_s &thrust, vehicle_torque_setpoint_s &torque,
-			  buoyancy_control_s &buoyancy, hrt_abstime now);
 
 	enum class MissionId : int32_t {
 		Manual = 0,
@@ -197,20 +151,9 @@ private:
 	uORB::Publication<rs_mission_id_s> _rs_mission_id_pub{ORB_ID(rs_mission_id)};
 	int32_t _last_published_mission_id{-1};
 
-	// ################################################################################
-	// #	Module Global Variables
-	// ################################################################################
-
-	hrt_abstime _last_run{0};			/**< last run time for pid dt calculation*/
 	perf_counter_t	_loop_perf;			/**< loop duration performance counter */
 
-	RS_PID _pid_x{1.0f}; // Limit op 1.0 thrust
-	RS_PID _pid_y{1.0f};
-	RS_PID _pid_z{1.0f};
-
-	bool _hold_position_set{false};
-	float _hold_x{0.0f};
-	float _hold_y{0.0f};
-	float _hold_z{0.0f};
+	ManualController _manual_controller;
+	PositionController _position_controller;
 
 };

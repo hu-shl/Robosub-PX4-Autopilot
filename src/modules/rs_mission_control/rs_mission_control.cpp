@@ -39,8 +39,6 @@
 #include "missions/manual_mission/manual_mission.hpp"
 #include "missions/manual_aruco_mission/manual_aruco_mission.hpp"
 #include "missions/follow_pipe_mission/follow_pipe_mission.hpp"
-#include "controllers/manual_controller/manual_controller.hpp"
-#include "controllers/position_controller/position_controller.hpp"
 
 ModuleBase::Descriptor RS_MissionControl::desc{task_spawn, custom_command, print_usage};
 
@@ -132,9 +130,6 @@ bool RS_MissionControl::init()
 	ManualMission{}.print_name();
 	ManualArucoMission{}.print_name();
 	FollowPipeMission{}.print_name();
-	ManualController{}.print_name();
-	PositionController{}.print_name();
-
 	return true;
 }
 
@@ -192,13 +187,16 @@ void RS_MissionControl::Run()
 	switch (status.nav_state) {						// switchcase with logic based on flight mode (manual, hold, ROS2)
 
 	case vehicle_status_s::NAVIGATION_STATE_MANUAL:
-		_hold_position_set = false;			//controller inputs linked to thrusters en buoyancy
-		control_manual(manualControlInput, thrustSetpoint, torqueSetpoint, buoyancyControl, armControl, now);
+		_position_controller.reset();
+		_manual_controller.update(manualControlInput, thrustSetpoint, torqueSetpoint, buoyancyControl, armControl, now);
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_POSCTL:			// Thruster control in hold mode
+	case vehicle_status_s::NAVIGATION_STATE_POSCTL: // Thruster control in hold mode
 
-		control_hold(vehicle_odo_data, thrustSetpoint, torqueSetpoint, buoyancyControl, now);
+		_position_controller.update(vehicle_odo_data, thrustSetpoint, now,
+		{_rs_x_kp.get(), _rs_x_ki.get(), _rs_x_kd.get()},
+		{_rs_y_kp.get(), _rs_y_ki.get(), _rs_y_kd.get()},
+		{_rs_z_kp.get(), _rs_z_ki.get(), _rs_z_kd.get()});
 		//pid in for x,y,z, roll, pitch, yaw thrusters
 		//evt later langzame pid voor buoyancy voor Z,roll,pitch
 		break;
@@ -283,114 +281,4 @@ int RS_MissionControl::print_usage(const char *reason)
 extern "C" __EXPORT int rs_mission_control_main(int argc, char *argv[])
 {
 	return ModuleBase::main(RS_MissionControl::desc, argc, argv);
-}
-
-void RS_MissionControl::control_manual(const manual_control_setpoint_s &manual, vehicle_thrust_setpoint_s &thrust,
-				       vehicle_torque_setpoint_s &torque, buoyancy_control_s &buoyancy, arm_control_s &arm, hrt_abstime now)
-{
-
-// set timestamp variables
-	torque.timestamp = now;
-	torque.timestamp_sample = now;
-	thrust.timestamp = now;
-	thrust.timestamp_sample = now;
-
-	float manual_mode_float = manual.aux1;
-	// if (manual_mode_float < 0) manual_mode_float -= 0.5f;		// round to nearest int
-	// else manual_mode_float += 0.5f;
-	// int manual_mode = (int)(manual_mode_float);
-
-	//float manual_mode_float = _rs_man_mode.get();
-	int manual_mode = (int)lroundf(manual_mode_float);
-	PX4_INFO("manual mode: %d", manual_mode);
-
-	thrust.xyz[0] = 0.f; thrust.xyz[1] = 0.f; thrust.xyz[2] = 0.f;
-	torque.xyz[0] = 0.f; torque.xyz[1] = 0.f; torque.xyz[2] = 0.f;
-
-	for (int i = 0; i < 4; i++) { buoyancy.tank_command[i] = 0.f; }
-
-	for (int j = 0; j < 6; j++) { arm.servo_command[j] = 0.f; }
-
-	// load data from manual control to output
-	// NED frame
-
-	switch (manual_mode) {			//manual thruster/arm/buoyancy
-
-	case -1:
-		buoyancy.tank_command[0] = manual.roll;				//buoyancy commands linked to rc controller inputs
-		buoyancy.tank_command[1] = manual.pitch;
-		buoyancy.tank_command[2] = manual.yaw;
-		buoyancy.tank_command[3] = manual.throttle;
-		buoyancy.tank_command[4] = manual.aux3;
-		buoyancy.tank_command[5] = manual.aux4;
-		buoyancy.tank_command[6] = manual.aux5;
-		buoyancy.tank_command[7] = manual.aux6;
-		PX4_INFO("buoyancy mode: %d", manual_mode);
-		break;
-
-	case 0:
-		torque.xyz[0] = manual.aux4;					//Controller allocation based on rc controller setup and airframe
-		torque.xyz[1] = manual.pitch;
-		torque.xyz[2] = manual.roll * 0.2f;
-
-		thrust.xyz[0] = manual.throttle;
-		thrust.xyz[1] = 0.f;
-		thrust.xyz[2] = manual.yaw * 0.6f;
-		PX4_INFO("thrusters mode: %d", manual_mode);
-		break;
-
-	case 1:
-		arm.servo_command[0] = manual.roll;				//arm commands linked to rc controller inputs
-		arm.servo_command[1] = manual.pitch;
-		arm.servo_command[2] = manual.yaw;
-		arm.servo_command[3] = manual.throttle;
-		arm.servo_command[4] = manual.aux3;
-		arm.servo_command[5] = manual.aux4;
-		arm.servo_command[6] = manual.aux5;
-		arm.servo_command[7] = manual.aux6;
-		PX4_INFO("arm mode: %d", manual_mode);
-
-	}
-
-}
-
-void RS_MissionControl::control_hold(const vehicle_odometry_s &odom, vehicle_thrust_setpoint_s &thrust,
-				     vehicle_torque_setpoint_s &torque, buoyancy_control_s &buoyancy, hrt_abstime now)
-{
-	if (!_hold_position_set) {
-		_hold_x = odom.position[0];				//save current position as input in hold pid
-		_hold_y = odom.position[1];
-		_hold_z = odom.position[2];
-
-		_pid_x.reset();
-		_pid_y.reset();
-		_pid_z.reset();
-
-		_hold_position_set = true;
-		_last_run = now;
-
-		PX4_INFO("Custom PID Hold Start");
-	}
-
-	float dt = (now - _last_run) / 1e6f;
-
-	if (dt > 0.099f) {
-
-		_pid_x.update(_rs_x_kp.get(), _rs_x_ki.get(), _rs_x_kd.get(), _hold_x, odom.position[0],
-			      dt);		//get custom pid parameters and use in custom pid function
-
-		_pid_y.update(_rs_y_kp.get(), _rs_y_ki.get(), _rs_y_kd.get(), _hold_y, odom.position[1], dt);
-
-		_pid_z.update(_rs_z_kp.get(), _rs_z_ki.get(), _rs_z_kd.get(), _hold_z, odom.position[2], dt);
-
-		_last_run = now;
-
-		PX4_INFO("Hold Active - X_Err: %.2f | X_Thrust: %.2f", (double)(_hold_x - odom.position[0]), (double)thrust.xyz[0]);
-		PX4_INFO("Hold sp %.2f", (double)odom.position[0]);
-	}
-
-	thrust.xyz[0] = -_pid_x.get_output();		//set pid output to thrust setpoint from airframe
-	thrust.xyz[1] = -_pid_y.get_output();
-	thrust.xyz[2] = -_pid_z.get_output();
-	thrust.timestamp = now;
 }
