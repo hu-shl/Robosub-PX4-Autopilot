@@ -1,0 +1,5 @@
+menuconfig MODULES_RS_MISSION_COORDINATOR
+    bool "Robosub Mission Coordinator"
+    default n
+    ---help---
+        Coordinates mission selection and mode handling for Robosub

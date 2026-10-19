@@ -1,5 +1,0 @@
-menuconfig MODULES_RS_MISSION_CONTROL
-    bool "Robosub Mission Control"
-    default n
-    ---help---
-        Custom mission and movement control module for Robosub

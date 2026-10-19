@@ -47,7 +47,7 @@ px4_add_romfs_files(
 	rc.sysinit
 )
 
-if(CONFIG_MODULES_RS_MISSION_CONTROL)
+if(CONFIG_MODULES_RS_MISSION_COORDINATOR)
 	px4_add_romfs_files(
 		rc.robosub_apps
 		rc.robosub_defaults

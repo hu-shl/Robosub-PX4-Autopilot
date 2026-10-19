@@ -31,7 +31,7 @@
  *
  ****************************************************************************/
 
-#include "rs_mission_control.hpp"
+#include "rs_mission_coordinator.hpp"
 
 #include <drivers/drv_hrt.h>
 #include <systemlib/mavlink_log.h>
@@ -43,12 +43,12 @@
 
 static constexpr hrt_abstime MODE_REQUEST_RETRY_INTERVAL_US = 1'000'000;
 
-ModuleBase::Descriptor RS_MissionControl::desc{task_spawn, custom_command, print_usage};
+ModuleBase::Descriptor RS_MissionCoordinator::desc{task_spawn, custom_command, print_usage};
 
 /**
  * @brief Class constructor
  */
-RS_MissionControl::RS_MissionControl() :
+RS_MissionCoordinator::RS_MissionCoordinator() :
 	ModuleParams(nullptr),
 	WorkItem(MODULE_NAME, px4::wq_configurations::rate_ctrl),
 	_loop_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle"))
@@ -57,7 +57,7 @@ RS_MissionControl::RS_MissionControl() :
 /**
  * @brief Class destructor
  */
-RS_MissionControl::~RS_MissionControl()
+RS_MissionCoordinator::~RS_MissionCoordinator()
 {
 	perf_free(_loop_perf);
 }
@@ -70,9 +70,9 @@ RS_MissionControl::~RS_MissionControl()
  *
  * @return PX4_OK if successfull, otherwise PX4_ERROR
  */
-int RS_MissionControl::task_spawn(int argc, char *argv[])
+int RS_MissionCoordinator::task_spawn(int argc, char *argv[])
 {
-	RS_MissionControl *instance = new RS_MissionControl();
+	RS_MissionCoordinator *instance = new RS_MissionCoordinator();
 
 	if (!instance) {
 		PX4_ERR("alloc failed");
@@ -99,7 +99,7 @@ int RS_MissionControl::task_spawn(int argc, char *argv[])
  *
  * @return PX4_OK if successfull, otherwise PX4_ERROR
  */
-bool RS_MissionControl::init()
+bool RS_MissionCoordinator::init()
 {
 	updateParams();
 
@@ -144,7 +144,7 @@ bool RS_MissionControl::init()
 /**
  * @brief Main Module loop
  */
-void RS_MissionControl::Run()
+void RS_MissionCoordinator::Run()
 {
 
 	// Check if this module should still exist
@@ -246,7 +246,7 @@ void RS_MissionControl::Run()
 	perf_end(_loop_perf);
 }
 
-void RS_MissionControl::update_mission_selection(const vehicle_status_s &status)
+void RS_MissionCoordinator::update_mission_selection(const vehicle_status_s &status)
 {
 	const int32_t mission_id = _param_rs_mission_id.get();
 
@@ -305,7 +305,7 @@ void RS_MissionControl::update_mission_selection(const vehicle_status_s &status)
 	}
 }
 
-void RS_MissionControl::request_mission_mode(const vehicle_status_s &status)
+void RS_MissionCoordinator::request_mission_mode(const vehicle_status_s &status)
 {
 	vehicle_command_s command{};
 	command.timestamp = hrt_absolute_time();
@@ -324,14 +324,14 @@ void RS_MissionControl::request_mission_mode(const vehicle_status_s &status)
 	}
 }
 
-void RS_MissionControl::enter_safe_state(const char *reason)
+void RS_MissionCoordinator::enter_safe_state(const char *reason)
 {
 	_active_mission = nullptr;
 	_coordinator_state = CoordinatorState::Safe;
 	PX4_WARN("Safe-state stub active: %s; no UUV-specific safe action is implemented", reason);
 }
 
-void RS_MissionControl::publish_mission_id()
+void RS_MissionCoordinator::publish_mission_id()
 {
 	const int32_t mission_id = _param_rs_mission_id.get();
 
@@ -363,7 +363,7 @@ void RS_MissionControl::publish_mission_id()
  *
  * @return PX4_OK if successfull, otherwise PX4_ERROR
  */
-int RS_MissionControl::custom_command(int argc, char *argv[])
+int RS_MissionCoordinator::custom_command(int argc, char *argv[])
 {
 	// for now we don't define any custom flags / commands
 	return print_usage("unknown command");
@@ -377,13 +377,13 @@ int RS_MissionControl::custom_command(int argc, char *argv[])
  *
  * @return PX4_OK if successfull, otherwise PX4_ERROR
  */
-int RS_MissionControl::print_usage(const char *reason)
+int RS_MissionCoordinator::print_usage(const char *reason)
 {
 	if (reason) {
 		PX4_WARN("%s", reason);
 	}
 
-	PRINT_MODULE_USAGE_NAME("rs_mission_control", "controller");
+	PRINT_MODULE_USAGE_NAME("rs_mission_coordinator", "controller");
 	PRINT_MODULE_USAGE_COMMAND("start")
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
@@ -393,7 +393,7 @@ int RS_MissionControl::print_usage(const char *reason)
 /**
  * @brief C Export for compaitibility with NuttX shell
  */
-extern "C" __EXPORT int rs_mission_control_main(int argc, char *argv[])
+extern "C" __EXPORT int rs_mission_coordinator_main(int argc, char *argv[])
 {
-	return ModuleBase::main(RS_MissionControl::desc, argc, argv);
+	return ModuleBase::main(RS_MissionCoordinator::desc, argc, argv);
 }

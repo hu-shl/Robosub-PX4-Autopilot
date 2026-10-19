@@ -40,7 +40,7 @@ px4_add_romfs_files(
 	# [22000, 22999] Reserve for custom models
 )
 
-if(CONFIG_MODULES_RS_MISSION_CONTROL)
+if(CONFIG_MODULES_RS_MISSION_COORDINATOR)
      px4_add_romfs_files(
           61000_uuv_robosub
 	  61001_uuv_robosubv3

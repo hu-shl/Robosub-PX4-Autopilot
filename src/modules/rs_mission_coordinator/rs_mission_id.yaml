@@ -1,4 +1,4 @@
-module_name: rs_mission_control
+module_name: rs_mission_coordinator
 
 parameters:
     - group: mission_id

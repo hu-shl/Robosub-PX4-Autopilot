@@ -58,15 +58,15 @@
 // ################################################################################
 #include "controllers/position_controller/position_controller.hpp"
 
-class RS_MissionControl : public ModuleBase, public ModuleParams, public px4::WorkItem
+class RS_MissionCoordinator : public ModuleBase, public ModuleParams, public px4::WorkItem
 {
 	// standard PX4 module boilerplate
 public:
 	static Descriptor desc;
 
 	/** @brief standard constructor / destructor */
-	RS_MissionControl();
-	~RS_MissionControl() override;
+	RS_MissionCoordinator();
+	~RS_MissionCoordinator() override;
 
 	/** @see ModuleBase */
 	static int task_spawn(int argc, char *argv[]);
