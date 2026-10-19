@@ -6,13 +6,14 @@ parameters:
         RS_MISSION_ID:
           description:
             short: rs_mission_id
-            long: Mission selected for the vehicle and reported to the companion computer.
+            long: Mission selected for the vehicle and reported to the companion computer. Select Off when no mission should run.
           type: enum
           values:
-            0: Manual mission
-            1: Manual ArUco mission
-            2: Follow pipe mission
+            0: Off - no mission selected
+            1: Manual mission
+            2: Manual ArUco mission
+            3: Follow pipe mission
           default: 0
           min: 0
-          max: 2
+          max: 3
           category: Robosub

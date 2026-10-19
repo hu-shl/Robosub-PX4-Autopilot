@@ -88,9 +88,10 @@ private:
 	void Run() override;
 
 	enum class MissionId : int32_t {
-		Manual = 0,
-		ManualAruco = 1,
-		FollowPipe = 2
+		Off = 0,
+		Manual = 1,
+		ManualAruco = 2,
+		FollowPipe = 3
 	};
 
 	enum class CoordinatorState : uint8_t {

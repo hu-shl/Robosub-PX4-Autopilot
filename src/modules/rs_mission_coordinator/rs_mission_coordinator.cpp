@@ -263,6 +263,10 @@ void RS_MissionCoordinator::update_mission_selection(const vehicle_status_s &sta
 	_coordinator_state = CoordinatorState::NoMission;
 
 	switch (static_cast<MissionId>(mission_id)) {
+	case MissionId::Off:
+		PX4_INFO("No mission selected");
+		return;
+
 	case MissionId::Manual: {
 			static ManualMission mission;
 			_active_mission = &mission;
@@ -335,7 +339,8 @@ void RS_MissionCoordinator::publish_mission_id()
 {
 	const int32_t mission_id = _param_rs_mission_id.get();
 
-	if (mission_id != static_cast<int32_t>(MissionId::Manual)
+	if (mission_id != static_cast<int32_t>(MissionId::Off)
+	    && mission_id != static_cast<int32_t>(MissionId::Manual)
 	    && mission_id != static_cast<int32_t>(MissionId::ManualAruco)
 	    && mission_id != static_cast<int32_t>(MissionId::FollowPipe)) {
 		PX4_ERR("unsupported mission ID: %d", static_cast<int>(mission_id));
