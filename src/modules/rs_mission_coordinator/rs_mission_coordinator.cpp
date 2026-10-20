@@ -162,23 +162,9 @@ void RS_MissionCoordinator::Run()
 	// begin performance monitoring
 	perf_begin(_loop_perf);
 
-	// create objects to copy data to and from
-	manual_control_setpoint_s manualControlInput{};
-	vehicle_odometry_s vehicle_odo_data{};
-	vehicle_thrust_setpoint_s thrustSetpoint{};
-	vehicle_torque_setpoint_s torqueSetpoint{};
-	buoyancy_control_s	  buoyancyControl{};
-	arm_control_s		  armControl{};
-
-	vehicle_health_s	  vehicleHealth{};
-
 	orb_advert_t mavlink_log_pub = nullptr;
 	hrt_abstime now = hrt_absolute_time();  // get current time
 
-	const bool manual_control_updated = _manual_control_setpoint_sub.updated();
-	_manual_control_setpoint_sub.copy(&manualControlInput);
-	_vehicle_odo_sub.copy(&vehicle_odo_data);
-	_vehicle_health_sub.copy(&vehicleHealth);
 
 	const bool mission_tick_due = now - _last_mission_tick >= MISSION_UPDATE_INTERVAL_US;
 
@@ -195,6 +181,8 @@ void RS_MissionCoordinator::Run()
 	}
 
 	if (_vehicle_health_sub.updated()) {
+		vehicle_health_s vehicleHealth{};
+		_vehicle_health_sub.copy(&vehicleHealth);
 		if (vehicleHealth.battery[0] > 50.0f) {
 			mavlink_log_info(&mavlink_log_pub, "temp battery high!: %f", static_cast<double>(vehicleHealth.battery[0]));
 		}
@@ -229,10 +217,19 @@ void RS_MissionCoordinator::Run()
 		}
 	}
 
-	// Run the mission update
+	// Run the mission update and publish the results
 	if (_coordinator_state == CoordinatorState::Running
 	    && _active_mission != nullptr
-	    && (manual_control_updated || mission_tick_due)) {
+	    && (_manual_control_setpoint_sub.updated() || mission_tick_due)) {
+		manual_control_setpoint_s manualControlInput{};
+		vehicle_odometry_s vehicle_odo_data{};
+		vehicle_thrust_setpoint_s thrustSetpoint{};
+		vehicle_torque_setpoint_s torqueSetpoint{};
+		buoyancy_control_s buoyancyControl{};
+		arm_control_s armControl{};
+		_vehicle_odo_sub.copy(&vehicle_odo_data);
+		_manual_control_setpoint_sub.copy(&manualControlInput);
+
 		MissionContext context{
 			manualControlInput,
 			vehicle_odo_data,
@@ -248,8 +245,8 @@ void RS_MissionCoordinator::Run()
 		};
 		_active_mission->update(context);
 
-		_vehicle_torque_setpoint_pub.publish(torqueSetpoint);
 		_vehicle_thrust_setpoint_pub.publish(thrustSetpoint);
+		_vehicle_torque_setpoint_pub.publish(torqueSetpoint);
 		_buoyancy_control_pub.publish(buoyancyControl);
 		_arm_control_pub.publish(armControl);
 	}
