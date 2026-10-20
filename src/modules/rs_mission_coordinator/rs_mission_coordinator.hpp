@@ -58,7 +58,7 @@
 // ################################################################################
 #include "controllers/position_controller/position_controller.hpp"
 
-class RS_MissionCoordinator : public ModuleBase, public ModuleParams, public px4::WorkItem
+class RS_MissionCoordinator : public ModuleBase, public ModuleParams, public px4::ScheduledWorkItem
 {
 	// standard PX4 module boilerplate
 public:
@@ -166,6 +166,7 @@ private:
 	int32_t _last_published_mission_id{-1};
 	int32_t _active_mission_id{-1};
 	hrt_abstime _last_mode_request{0};
+	hrt_abstime _last_mission_tick{0};
 	Mission *_active_mission{nullptr};
 	CoordinatorState _coordinator_state{CoordinatorState::NoMission};
 

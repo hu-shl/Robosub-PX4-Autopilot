@@ -41,6 +41,7 @@
 #include "missions/follow_pipe_mission/follow_pipe_mission.hpp"
 
 static constexpr hrt_abstime MODE_REQUEST_RETRY_INTERVAL_US = 1'000'000;
+static constexpr hrt_abstime MISSION_UPDATE_INTERVAL_US = 20'000;
 
 ModuleBase::Descriptor RS_MissionCoordinator::desc{task_spawn, custom_command, print_usage};
 
@@ -49,7 +50,7 @@ ModuleBase::Descriptor RS_MissionCoordinator::desc{task_spawn, custom_command, p
  */
 RS_MissionCoordinator::RS_MissionCoordinator() :
 	ModuleParams(nullptr),
-	WorkItem(MODULE_NAME, px4::wq_configurations::rate_ctrl),
+	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::rate_ctrl),
 	_loop_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle"))
 {}
 
@@ -137,6 +138,9 @@ bool RS_MissionCoordinator::init()
 	_rs_mission_id_pub.advertise();
 	publish_mission_id();
 
+	_last_mission_tick = hrt_absolute_time();
+	ScheduleOnInterval(MISSION_UPDATE_INTERVAL_US);
+
 	return true;
 }
 
@@ -171,9 +175,16 @@ void RS_MissionCoordinator::Run()
 	orb_advert_t mavlink_log_pub = nullptr;
 	hrt_abstime now = hrt_absolute_time();  // get current time
 
+	const bool manual_control_updated = _manual_control_setpoint_sub.updated();
 	_manual_control_setpoint_sub.copy(&manualControlInput);
 	_vehicle_odo_sub.copy(&vehicle_odo_data);
 	_vehicle_health_sub.copy(&vehicleHealth);
+
+	const bool mission_tick_due = now - _last_mission_tick >= MISSION_UPDATE_INTERVAL_US;
+
+	if (mission_tick_due) {
+		_last_mission_tick = now;
+	}
 
 	// Check if parameters have changed
 	if (_parameter_update_sub.updated()) {
@@ -214,30 +225,34 @@ void RS_MissionCoordinator::Run()
 			if (status.nav_state != required_nav_state) {
 				_active_mission->stop();
 				enter_safe_state("vehicle left the mission's required mode");
-
-			} else {
-				MissionContext context{
-					manualControlInput,
-					vehicle_odo_data,
-					_position_controller,
-					{_rs_x_kp.get(), _rs_x_ki.get(), _rs_x_kd.get()},
-					{_rs_y_kp.get(), _rs_y_ki.get(), _rs_y_kd.get()},
-					{_rs_z_kp.get(), _rs_z_ki.get(), _rs_z_kd.get()},
-					thrustSetpoint,
-					torqueSetpoint,
-					buoyancyControl,
-					armControl,
-					now
-				};
-				_active_mission->update(context);
 			}
 		}
 	}
 
-	_vehicle_torque_setpoint_pub.publish(torqueSetpoint);
-	_vehicle_thrust_setpoint_pub.publish(thrustSetpoint);
-	_buoyancy_control_pub.publish(buoyancyControl);
-	_arm_control_pub.publish(armControl);
+	// Run the mission update
+	if (_coordinator_state == CoordinatorState::Running
+	    && _active_mission != nullptr
+	    && (manual_control_updated || mission_tick_due)) {
+		MissionContext context{
+			manualControlInput,
+			vehicle_odo_data,
+			_position_controller,
+			{_rs_x_kp.get(), _rs_x_ki.get(), _rs_x_kd.get()},
+			{_rs_y_kp.get(), _rs_y_ki.get(), _rs_y_kd.get()},
+			{_rs_z_kp.get(), _rs_z_ki.get(), _rs_z_kd.get()},
+			thrustSetpoint,
+			torqueSetpoint,
+			buoyancyControl,
+			armControl,
+			now
+		};
+		_active_mission->update(context);
+
+		_vehicle_torque_setpoint_pub.publish(torqueSetpoint);
+		_vehicle_thrust_setpoint_pub.publish(thrustSetpoint);
+		_buoyancy_control_pub.publish(buoyancyControl);
+		_arm_control_pub.publish(armControl);
+	}
 
 	perf_end(_loop_perf);
 }
