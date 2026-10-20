@@ -29,14 +29,9 @@ struct MissionContext {
 class Mission
 {
 public:
-	enum class RequiredMode : uint8_t {
-		Manual,
-		Offboard
-	};
-
 	virtual ~Mission() = default;
 
-	virtual RequiredMode required_mode() const = 0;
+	virtual uint8_t required_nav_state() const = 0;
 	virtual void start() = 0;
 	virtual void update(MissionContext &context) = 0;
 	virtual void stop() = 0;

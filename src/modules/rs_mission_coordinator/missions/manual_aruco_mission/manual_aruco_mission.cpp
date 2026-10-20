@@ -1,6 +1,12 @@
 #include "manual_aruco_mission.hpp"
 
 #include <px4_platform_common/log.h>
+#include <uORB/topics/vehicle_status.h>
+
+uint8_t ManualArucoMission::required_nav_state() const
+{
+	return vehicle_status_s::NAVIGATION_STATE_MANUAL;
+}
 
 void ManualArucoMission::start()
 {

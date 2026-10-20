@@ -35,7 +35,6 @@
 
 #include <drivers/drv_hrt.h>
 #include <systemlib/mavlink_log.h>
-#include "../commander/px4_custom_mode.h"
 
 #include "missions/manual_mission/manual_mission.hpp"
 #include "missions/manual_aruco_mission/manual_aruco_mission.hpp"
@@ -146,7 +145,6 @@ bool RS_MissionCoordinator::init()
  */
 void RS_MissionCoordinator::Run()
 {
-
 	// Check if this module should still exist
 	if (should_exit()) {
 		_manual_control_setpoint_sub.unregisterCallback();
@@ -160,6 +158,23 @@ void RS_MissionCoordinator::Run()
 	// begin performance monitoring
 	perf_begin(_loop_perf);
 
+	// create objects to copy data to and from
+	manual_control_setpoint_s manualControlInput{};
+	vehicle_odometry_s vehicle_odo_data{};
+	vehicle_thrust_setpoint_s thrustSetpoint{};
+	vehicle_torque_setpoint_s torqueSetpoint{};
+	buoyancy_control_s	  buoyancyControl{};
+	arm_control_s		  armControl{};
+
+	vehicle_health_s	  vehicleHealth{};
+
+	orb_advert_t mavlink_log_pub = nullptr;
+	hrt_abstime now = hrt_absolute_time();  // get current time
+
+	_manual_control_setpoint_sub.copy(&manualControlInput);
+	_vehicle_odo_sub.copy(&vehicle_odo_data);
+	_vehicle_health_sub.copy(&vehicleHealth);
+
 	// Check if parameters have changed
 	if (_parameter_update_sub.updated()) {
 		parameter_update_s param_update;
@@ -168,37 +183,20 @@ void RS_MissionCoordinator::Run()
 		publish_mission_id();
 	}
 
-	// create objects to copy data to and from
-	manual_control_setpoint_s manualControlInput{};
-	vehicle_odometry_s vehicle_odo_data{};
-	vehicle_thrust_setpoint_s thrustSetpoint{};
-	vehicle_torque_setpoint_s torqueSetpoint{};
-	buoyancy_control_s	  buoyancyControl{};
-	arm_control_s		  armControl{};
-	vehicle_status_s	  status{};
-	vehicle_health_s	  vehicleHealth{};
-
-	_manual_control_setpoint_sub.copy(&manualControlInput);
-	const bool have_vehicle_status = _vehicle_status_sub.copy(&status);
-	_vehicle_odo_sub.copy(&vehicle_odo_data);
-	_vehicle_health_sub.copy(&vehicleHealth);
-
-	orb_advert_t mavlink_log_pub = nullptr;
-
-	if (vehicleHealth.battery[0] > 50.0f) {
-		mavlink_log_info(&mavlink_log_pub, "temp battery high!: %f", static_cast<double>(vehicleHealth.battery[0]));
+	if (_vehicle_health_sub.updated()) {
+		if (vehicleHealth.battery[0] > 50.0f) {
+			mavlink_log_info(&mavlink_log_pub, "temp battery high!: %f", static_cast<double>(vehicleHealth.battery[0]));
+		}
 	}
 
-	// get current time
-	hrt_abstime now = hrt_absolute_time();
-
-	if (have_vehicle_status) {
+	// Check if flight-mode has changed
+	if (_vehicle_status_sub.updated()) {
+		vehicle_status_s status{};
+		_vehicle_status_sub.copy(&status);
 		update_mission_selection(status);
 
 		if (_coordinator_state == CoordinatorState::WaitingForMode && _active_mission != nullptr) {
-			const uint8_t required_nav_state = _active_mission->required_mode() == Mission::RequiredMode::Manual ?
-							   vehicle_status_s::NAVIGATION_STATE_MANUAL :
-							   vehicle_status_s::NAVIGATION_STATE_OFFBOARD;
+			const uint8_t required_nav_state = _active_mission->required_nav_state();
 
 			if (status.nav_state == required_nav_state) {
 				_active_mission->start();
@@ -211,9 +209,7 @@ void RS_MissionCoordinator::Run()
 		}
 
 		if (_coordinator_state == CoordinatorState::Running && _active_mission != nullptr) {
-			const uint8_t required_nav_state = _active_mission->required_mode() == Mission::RequiredMode::Manual ?
-							   vehicle_status_s::NAVIGATION_STATE_MANUAL :
-							   vehicle_status_s::NAVIGATION_STATE_OFFBOARD;
+			const uint8_t required_nav_state = _active_mission->required_nav_state();
 
 			if (status.nav_state != required_nav_state) {
 				_active_mission->stop();
@@ -290,10 +286,10 @@ void RS_MissionCoordinator::update_mission_selection(const vehicle_status_s &sta
 		return;
 	}
 
-	const uint8_t required_nav_state = _active_mission->required_mode() == Mission::RequiredMode::Manual ?
-					   vehicle_status_s::NAVIGATION_STATE_MANUAL :
-					   vehicle_status_s::NAVIGATION_STATE_OFFBOARD;
+	const uint8_t required_nav_state = _active_mission->required_nav_state();
 
+	// If PX4 is already in the selected mission's required mode, start it
+	// immediately; otherwise, request the mode and wait for confirmation.
 	if (status.nav_state == required_nav_state) {
 		_active_mission->start();
 		_coordinator_state = CoordinatorState::Running;
@@ -313,10 +309,8 @@ void RS_MissionCoordinator::request_mission_mode(const vehicle_status_s &status)
 {
 	vehicle_command_s command{};
 	command.timestamp = hrt_absolute_time();
-	command.command = vehicle_command_s::VEHICLE_CMD_DO_SET_MODE;
-	command.param1 = 1.f;
-	command.param2 = _active_mission->required_mode() == Mission::RequiredMode::Manual ?
-			 PX4_CUSTOM_MAIN_MODE_MANUAL : PX4_CUSTOM_MAIN_MODE_OFFBOARD;
+	command.command = vehicle_command_s::VEHICLE_CMD_SET_NAV_STATE;
+	command.param1 = static_cast<float>(_active_mission->required_nav_state());
 	_last_mode_request = command.timestamp;
 	command.target_system = status.system_id;
 	command.target_component = status.component_id;

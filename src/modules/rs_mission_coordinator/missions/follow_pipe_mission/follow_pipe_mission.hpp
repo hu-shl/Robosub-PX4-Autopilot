@@ -5,7 +5,7 @@
 class FollowPipeMission : public Mission
 {
 public:
-	RequiredMode required_mode() const override { return RequiredMode::Offboard; }
+	uint8_t required_nav_state() const override;
 	void start() override;
 	void update(MissionContext &context) override;
 	void stop() override;
