@@ -86,11 +86,19 @@ EscBattery::Run()
 
 	if (_esc_status_sub.copy(&esc_status)) {
 
-		if (esc_status.esc_count == 0 || esc_status.esc_count > esc_status_s::CONNECTED_ESC_MAX) {
+		// Nothing to average: invalid ESC count or no ESC online
+		if (esc_status.esc_count == 0 || esc_status.esc_count > esc_status_s::CONNECTED_ESC_MAX
+		    || esc_status.esc_online_flags == 0) {
 			return;
 		}
 
 		const uint8_t online_esc_count = math::countSetBits(esc_status.esc_online_flags);
+
+		// without an online ESC there is no voltage to average
+		if (online_esc_count == 0) {
+			return;
+		}
+
 		float average_voltage_v = 0.0f;
 		float total_current_a = 0.0f;
 
@@ -103,7 +111,7 @@ EscBattery::Run()
 
 		average_voltage_v /= online_esc_count;
 
-		_battery.setConnected(true);
+		_battery.setConnected(average_voltage_v > BOARD_ESC_BATTERY_OPEN_CIRCUIT_V);
 		_battery.updateVoltage(average_voltage_v);
 		_battery.updateCurrent(total_current_a);
 		_battery.updateAndPublishBatteryStatus(esc_status.timestamp);

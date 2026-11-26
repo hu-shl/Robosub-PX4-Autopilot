@@ -33,7 +33,7 @@ These have been tested by the PX4 dev team, or which are popular within the PX4 
 | [CUAV NEO 3 GPS](../gps_compass/gps_cuav_neo_3.md)           |     M9N     |          IST8310          |                             |           ✓           |                                                             |
 | [CUAV NEO 3 Pro GPS](../gps_compass/gps_cuav_neo_3pro.md)    |     M9N     |           RM3100          |              ✓              |           ✓           | + Baro                                                      |
 | [CUAV NEO 3X GPS](../gps_compass/gps_cuav_neo_3x.md)         |     M9N     |           RM3100          |              ✓              |          ✘✓✓          | + Baro.                                     |
-| [CubePilot Here2 GNSS GPS (M8N)][CubePilot Here2]            |     M8N     |          ICM20948         |                             |           ✓           | Superseded by HERE3                                         |
+| [CubePilot Here2 GNSS GPS (M8N)][CubePilot Here2]            |     M8N     |          ICM20948         |                             |           ✓           | Superseded by Here4                                         |
 | [Emlid Reach M+](https://emlid.com/reach/)                   |      ✓      |             ✘             |                             |           ✘           | Supports PPK. RTK expected. |
 | [Holybro DroneCAN M8N GPS](../dronecan/holybro_m8n_gps.md)   |     M8N     |           BMM150          |              ✓              |           ✘           | + Baro                                                      |
 | [Holybro Micro M8N GPS][Hb Micro M8N]                        |     M8N     |          IST8310          |                             |           ✘           |                                                             |
@@ -62,7 +62,7 @@ These have been tested by the PX4 dev team, or which are popular within the PX4 
 [RccnLabGNSS250]: https://docs.raccoonlab.co/guide/gps_mag_baro/gnss_v250.html
 [LOCOSYS Hawk A1]: ../gps_compass/gps_locosys_hawk_a1.md
 [Hb Micro M8N]: https://holybro.com/products/micro-m8n-gps
-[CubePilot Here2]: ../gps_compass/gps_hex_here2.md
+[CubePilot Here2]: ../gps_compass/gps_cubepilot_here2.md
 
 Notes:
 
@@ -160,8 +160,8 @@ The following steps show how to configure a secondary GPS on the `GPS 2` port in
 
 보조 GPS 포트를 설정 후 :
 
-1. 두 GPS 시스템의 데이터를 혼합하도록 ECL/EKF2 추정기를 설정합니다.
-   For detailed instructions see: [Using the ECL EKF > Dual Receivers](../advanced_config/tuning_the_ecl_ekf.md#dual-receivers).
+1. Optionally set which receiver is preferred using [SENS_GNSS_PRIME](../advanced_config/parameter_reference.md#SENS_GNSS_PRIME).
+   For more information see: [Using the ECL EKF > Dual Receivers](../advanced_config/tuning_the_ecl_ekf.md#dual-receivers).
 
 ### DroneCAN GNSS Configuration
 

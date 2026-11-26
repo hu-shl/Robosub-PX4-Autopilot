@@ -214,10 +214,11 @@
 #define GPIO_HW_VER_SENSE      /* PH3 */  GPIO_ADC3_INP14
 #define HW_INFO_INIT_PREFIX    "ARKV6X"
 
-#define BOARD_NUM_SPI_CFG_HW_VERSIONS 2
+#define BOARD_NUM_SPI_CFG_HW_VERSIONS 3
 //                 Base/FMUM
-#define ARKV6X_0   HW_FMUM_ID(0x0) // ARKV6X,     Sensor Set  Rev 0
-#define ARKV6X_1   HW_FMUM_ID(0x1) // ARKV6X,     Sensor Set  Rev 1
+#define ARKV6X_0   HW_FMUM_ID(0x0) // ARKV6X,     IIM-42652, 2x ICM-42688-P
+#define ARKV6X_1   HW_FMUM_ID(0x1) // ARKV6X,     3x IIM-42653
+#define ARKV6X_2   HW_FMUM_ID(0x2) // ARKV6X,     3x LSM6DSV32X
 
 #define UAVCAN_NUM_IFACES_RUNTIME  1
 
@@ -328,11 +329,11 @@
 #define GPIO_nSAFETY_SWITCH_LED_OUT_INIT   /* PD10 */ (GPIO_INPUT|GPIO_FLOAT|GPIO_PORTD|GPIO_PIN10)
 #define GPIO_nSAFETY_SWITCH_LED_OUT        /* PD10 */ (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_SET|GPIO_PORTD|GPIO_PIN10)
 
-/* Enable the FMU to control it if there is no px4io fixme:This should be BOARD_SAFETY_LED(__ontrue) */
+/* Enable the FMU to control it if there is no px4io */
 #define GPIO_LED_SAFETY GPIO_nSAFETY_SWITCH_LED_OUT
 
 #define GPIO_SAFETY_SWITCH_IN              /* PF5 */ (GPIO_INPUT|GPIO_PULLUP|GPIO_PORTF|GPIO_PIN5)
-/* Enable the FMU to use the switch it if there is no px4io fixme:This should be BOARD_SAFTY_BUTTON() */
+/* Enable the FMU to use the switch if there is no px4io */
 #define GPIO_BTN_SAFETY GPIO_SAFETY_SWITCH_IN /* Enable the FMU to control it if there is no px4io */
 
 /* Power switch controls ******************************************************/

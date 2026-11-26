@@ -135,6 +135,8 @@ Notes:
 | LPUART10 | /dev/ttyS6 | TELEM3  |
 | LPUART11 | /dev/ttyS7 | EXT2    |
 
+The board has five [MAVLink instances](../peripherals/mavlink_peripherals.md#mavlink-instances) (`MAV_0_CONFIG` to `MAV_4_CONFIG`) rather than the usual three.
+
 ## Radio Control {#radio_control}
 
 A remote control (RC) radio system is required if you want to _manually_ control your vehicle (PX4 does not require a radio system for autonomous flight modes).
@@ -175,8 +177,8 @@ Analog/ADC battery monitoring is also supported.
 ## Building Firmware
 
 ::: tip
-Most users will not need to build this firmware from PX4 v2.0.
-It will be pre-built and automatically installed by _QGroundControl_ when appropriate hardware is connected.
+Most users will not need to build this firmware (from PX4 v2.0).
+It is pre-built and automatically installed by _QGroundControl_ when appropriate hardware is connected.
 :::
 
 To [build PX4](../dev_setup/building_px4.md) for this target:
@@ -184,6 +186,14 @@ To [build PX4](../dev_setup/building_px4.md) for this target:
 ```sh
 make agam_fmu-v6xrt_default
 ```
+
+## Secure Boot
+
+The board supports [Bootloader Secure Boot](../advanced_config/bootloader_secure_boot.md), which only runs firmware signed with a key the bootloader trusts.
+The build targets are:
+
+- `agam_fmu-v6xrt_bootloader_secureboot`: the secure bootloader.
+- `agam_fmu-v6xrt_secureboot`: PX4 firmware, signed as part of the build.
 
 ## Debug Port {#debug_port}
 

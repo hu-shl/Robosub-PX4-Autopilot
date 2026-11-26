@@ -210,7 +210,7 @@ define cmake-build
 		|| (rm -rf $(BUILD_DIR)); \
 	fi
 	@# run the build for the specified target
-	@cmake --build $(BUILD_DIR) -- $(PX4_MAKE_ARGS) $(ARGS)
+	+@cmake --build $(BUILD_DIR) -- $(PX4_MAKE_ARGS) $(ARGS)
 endef
 
 # check if the options we want to build with in CMAKE_ARGS match the ones which are already configured in the cache inside BUILD_DIR
@@ -335,32 +335,11 @@ uorb_graphs:
 	@$(MAKE) --no-print-directory px4_fmu-v6x_default uorb_graph
 	@$(MAKE) --no-print-directory px4_sitl_default uorb_graph
 
-px4io_update:
-	@$(MAKE) --no-print-directory px4_io-v2_default
-	@$(MAKE) --no-print-directory cubepilot_io-v2_default
-	# px4_io-v2_default
-	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/ark/fmu-v6x/extras/px4_io-v2_default.bin
-	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/holybro/durandal-v1/extras/px4_io-v2_default.bin
-	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/holybro/pix32v5/extras/px4_io-v2_default.bin
-	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/mro/x21/extras/px4_io-v2_default.bin
-	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/mro/x21-777/extras/px4_io-v2_default.bin
-	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/px4/fmu-v2/extras/px4_io-v2_default.bin
-	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/px4/fmu-v3/extras/px4_io-v2_default.bin
-	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/px4/fmu-v4pro/extras/px4_io-v2_default.bin
-	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/px4/fmu-v5/extras/px4_io-v2_default.bin
-	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/px4/fmu-v5x/extras/px4_io-v2_default.bin
-	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/px4/fmu-v6x/extras/px4_io-v2_default.bin
-	cp build/px4_io-v2_default/px4_io-v2_default.bin boards/px4/fmu-v6c/extras/px4_io-v2_default.bin
-	# cubepilot_io-v2_default
-	cp build/cubepilot_io-v2_default/cubepilot_io-v2_default.bin boards/cubepilot/cubeorange/extras/cubepilot_io-v2_default.bin
-	cp build/cubepilot_io-v2_default/cubepilot_io-v2_default.bin boards/cubepilot/cubeorangeplus/extras/cubepilot_io-v2_default.bin
-	cp build/cubepilot_io-v2_default/cubepilot_io-v2_default.bin boards/cubepilot/cubeyellow/extras/cubepilot_io-v2_default.bin
-	git status
-
 bootloaders_update: \
 	3dr_ctrl-n1_bootloader \
 	3dr_ctrl-zero-h7-oem-revg_bootloader \
 	ark_can-flow_canbootloader \
+	ark_can-flow-lr_canbootloader \
 	ark_can-flow-mr_canbootloader \
 	ark_can-gps_canbootloader \
 	ark_can-rtk-gps_canbootloader \
@@ -434,28 +413,28 @@ px4_metadata: parameters_metadata airframe_metadata module_documentation extract
 
 # Style
 # --------------------------------------------------------------------
-.PHONY: check_format format format_changed check_newlines
+.PHONY: check_format format format_changed
 
 check_format:
 	$(call colorecho,'Checking formatting with astyle')
 	@"$(SRC_DIR)"/Tools/astyle/check_code_style_all.sh
+	@"$(SRC_DIR)"/Tools/astyle/check_param_names.py
+	@"$(SRC_DIR)"/Tools/astyle/check_newlines.py
 	@cd "$(SRC_DIR)" && git diff --check
 
 format:
 	$(call colorecho,'Formatting with astyle')
+	@"$(SRC_DIR)"/Tools/astyle/check_param_names.py --fix
+	@"$(SRC_DIR)"/Tools/astyle/check_newlines.py --fix
 	@"$(SRC_DIR)"/Tools/astyle/check_code_style_all.sh --fix
 
 format_changed:
 	$(call colorecho,'Formatting changed files with astyle')
 	@"$(SRC_DIR)"/Tools/astyle/check_code_style_all.sh --fix --diff-only
 
-check_newlines:
-	$(call colorecho,'Checking for missing or duplicate newlines at the end of files')
-	@"$(SRC_DIR)"/Tools/astyle/check_newlines.sh
-
 # Testing
 # --------------------------------------------------------------------
-.PHONY: tests tests_daa_crosstrack tests_vtest_moving tests_neural tests_coverage tests_mission tests_mission_coverage tests_offboard
+.PHONY: tests tests_daa_crosstrack tests_vtest_moving tests_neural tests_nocache tests_coverage tests_mission tests_mission_coverage tests_offboard
 .PHONY: rostest python_coverage
 
 tests:
@@ -492,6 +471,16 @@ tests_neural:
 	$(eval UBSAN_OPTIONS += color=always)
 	$(call cmake-build,px4_sitl_neural)
 
+# The default px4_sitl_test board builds the navigator mission cache, which NuttX boards leave out by default.
+# This target builds without it (CONFIG_NAVIGATOR_FULL_MISSION_CACHE_SIZE=0).
+tests_nocache:
+	$(eval override CMAKE_ARGS += -DTESTFILTER="$(if $(TESTFILTER),$(TESTFILTER),test_RTL|test_mission_base)")
+	$(eval override CMAKE_ARGS += -DCMAKE_TESTING=ON)
+	$(eval ARGS += test_results)
+	$(eval ASAN_OPTIONS += color=always:check_initialization_order=1:detect_stack_use_after_return=1)
+	$(eval UBSAN_OPTIONS += color=always)
+	$(call cmake-build,px4_sitl_test-nocache)
+
 # work around lcov bug #316; remove once lcov is fixed (see https://github.com/linux-test-project/lcov/issues/316)
 LCOBUG = --ignore-errors mismatch,negative
 tests_coverage:
@@ -510,13 +499,11 @@ rostest: px4_sitl_default
 	@$(MAKE) --no-print-directory px4_sitl_default sitl_gazebo-classic
 
 tests_integration: px4_sitl_default
-	@$(MAKE) --no-print-directory px4_sitl_default mavsdk_tests
 	@"$(SRC_DIR)"/test/mavsdk_tests/mavsdk_test_runner.py --speed-factor 20 test/mavsdk_tests/configs/sih-sitl.json
 
 tests_integration_coverage:
 	@$(MAKE) clean
 	@$(MAKE) --no-print-directory px4_sitl_default PX4_CMAKE_BUILD_TYPE=Coverage
-	@$(MAKE) --no-print-directory px4_sitl_default mavsdk_tests
 	@"$(SRC_DIR)"/test/mavsdk_tests/mavsdk_test_runner.py --speed-factor 20 test/mavsdk_tests/configs/sih-sitl.json
 	@mkdir -p coverage
 	@lcov --directory build/px4_sitl_default --base-directory build/px4_sitl_default --gcov-tool gcov --capture -o coverage/lcov.info
